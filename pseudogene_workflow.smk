@@ -32,7 +32,7 @@ rule annotate_bakta:
     input:
         fasta = "raw_data/{accession}.fasta"
     output:
-        gff = "bakta_output/{accession}/{accession}.gff"
+        gff = "bakta_output/{accession}/{accession}.gbff"
     conda:
         "/home/phil/envs/bakta.yaml"
     threads: 32
@@ -44,7 +44,7 @@ rule annotate_bakta:
 
 rule run_pseudofinder_bakta_db:
     input:
-        gbff = "bakta_output/{accession}/{accession}.gff"
+        gff = rules.annotate_bakta.output.gff
     output:
         gff = "{accession}_bakta_db_pseudos.gff"
     conda:
@@ -55,12 +55,11 @@ rule run_pseudofinder_bakta_db:
         python ~/programs/pseudofinder/pseudofinder.py annotate -g {input.gff} \
         --outprefix {wildcards.accession}_bakta_db \
         --database {BAKTA_DB}/psc.dmnd -di -skpdb -t {threads}
-        mv {wildcards.accession}_bakta_db_pseudos.gff {output.gff}
         """
 
 rule run_pseudofinder_salmonella:
     input:
-        gff = "bakta_output/{accession}/{accession}.gff"
+        gff = rules.annotate_bakta.output.gff
     output:
         gff = "{accession}_salmonella_pseudos.gff"
     conda:
@@ -71,12 +70,11 @@ rule run_pseudofinder_salmonella:
         python ~/programs/pseudofinder/pseudofinder.py annotate -g {input.gff} \
         --outprefix {wildcards.accession}_salmonella \
         --database {SALMONELLA_PANGENOME} -di -t {threads}
-        mv {wildcards.accession}_salmonella_pseudos.gff {output.gff}
         """
 
 rule run_pseudofinder_ncbi:
     input:
-        gff = "bakta_output/{accession}/{accession}.gff",
+        gff = rules.annotate_bakta.output.gff,
         protein = "raw_data/{accession}_protein.faa"
     output:
         gff = "{accession}_ncbi_pseudos.gff"
@@ -88,5 +86,4 @@ rule run_pseudofinder_ncbi:
         python ~/programs/pseudofinder/pseudofinder.py annotate -g {input.gff} \
         --outprefix {wildcards.accession}_ncbi \
         --database {input.protein} -di -t {threads}
-        mv {wildcards.accession}_ncbi_pseudos.gff {output.gff}
         """
