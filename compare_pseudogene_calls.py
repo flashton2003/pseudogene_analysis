@@ -76,7 +76,7 @@ def process_datasets(truth_file: str, call_files: List[Dict[str, str]]) -> pd.Da
     for call_file in call_files:
         call_df = read_and_filter_data(call_file['path'])
         
-        if call_file['name'].lower() == 'bakta':
+        if call_file['name'].lower() == 'bakta_pseudo':
             call_df = call_df[call_df['attribute'].notna() & call_df['attribute'].str.contains('pseudo=True')]
         
         sensitivity, ppv = calculate_sensitivity_ppv(truth_df, call_df)
