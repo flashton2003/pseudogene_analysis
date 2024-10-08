@@ -32,7 +32,7 @@ rule annotate_bakta:
     input:
         fasta = "raw_data/{accession}.fasta"
     output:
-        gff = "bakta_output/{accession}/{accession}.gff"
+        gff = "bakta_output/{accession}/{accession}.gff3"
     conda:
         "/home/phil/envs/bakta.yaml"
     threads: 32
