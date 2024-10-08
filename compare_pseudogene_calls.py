@@ -97,18 +97,11 @@ pseudofinder_salmonellapangenomedb_file = "/Users/flashton/Dropbox/GordonGroup/S
 bakta_annotation = '/Users/flashton/Dropbox/GordonGroup/STRATAA_XDR_Salmonella_Isangi/pseudogene_finding/2024.10.07/GCF_000006945.2.gff3'
 
 
-# Load the truth data (assumed CSV)
-# truth_df = pd.read_csv(truth_file)
-truth_df = pd.read_excel(truth_file)
-
-# Load pseudogene call data (assuming GFF formatted, extract key columns)
-columns = ['seqname', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
-
-
-pseudofinder_baktadb_df = pd.read_csv(pseudofinder_baktadb_file, sep='\t', comment='#', header=None, names=columns)
-pseudofinder_singlegenomedb_df = pd.read_csv(pseudofinder_singlegenomedb_file, sep='\t', comment='#', header=None, names=columns)
-pseudofinder_salmonellapangenomedb_df = pd.read_csv(pseudofinder_salmonellapangenomedb_file, sep='\t', comment='#', header=None, names=columns)
-bakta_annotation = pd.read_csv(bakta_annotation, sep='\t', comment='#', header=None, names=columns)
+truth_df = read_and_filter_data(truth_file, 'excel')
+pseudofinder_baktadb_df = read_and_filter_data(pseudofinder_baktadb_file, 'gff')
+pseudofinder_singlegenomedb_df = read_and_filter_data(pseudofinder_singlegenomedb_file, 'gff')
+pseudofinder_salmonellapangenomedb_df = read_and_filter_data(pseudofinder_salmonellapangenomedb_file, 'gff')
+bakta_annotation = read_and_filter_data(bakta_annotation, 'gff')
 
 
 bakta_pseudogene_df = bakta_annotation[bakta_annotation['attribute'].notna() & bakta_annotation['attribute'].str.contains('pseudo=True')]
