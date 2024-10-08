@@ -103,10 +103,7 @@ pseudofinder_singlegenomedb_df = read_and_filter_data(pseudofinder_singlegenomed
 pseudofinder_salmonellapangenomedb_df = read_and_filter_data(pseudofinder_salmonellapangenomedb_file, 'gff')
 bakta_annotation = read_and_filter_data(bakta_annotation, 'gff')
 
-
 bakta_pseudogene_df = bakta_annotation[bakta_annotation['attribute'].notna() & bakta_annotation['attribute'].str.contains('pseudo=True')]
-
-
 
 # Calculating sensitivity and specificity for each pseudogene file
 pseudofinder_baktadb_sensitivity, pseudofinder_baktadb_ppv = calculate_sensitivity_ppv(truth_df, pseudofinder_baktadb_df)
