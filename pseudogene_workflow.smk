@@ -1,21 +1,22 @@
 # Snakefile for genome analysis workflow
 
 # Define the accession and paths directly in the script
-GENOME_ACCESSION = "GCF_000006945.2"
+GENOME_ACCESSION = "GCF_000016045.1"
 BAKTA_DB = "/data/fast/core/bakta/db"
 SALMONELLA_PANGENOME = "/data/fast/salmonella/isangi/pseudogenes/2024.10.03/uniref_taxonomy_id_28901_NOT_name_fr_2024_10_03.fasta"
+OUTPUT_DIR = "output"  # Define the output directory variable
 
 rule all:
     input:
-        expand("{accession}_bakta_db_pseudos.gff", accession=GENOME_ACCESSION),
-        expand("{accession}_salmonella_pseudos.gff", accession=GENOME_ACCESSION),
-        expand("{accession}_ncbi_pseudos.gff", accession=GENOME_ACCESSION)
+        expand(f"{OUTPUT_DIR}/{{accession}}_bakta_db_pseudos.gff", accession=GENOME_ACCESSION),
+        expand(f"{OUTPUT_DIR}/{{accession}}_salmonella_pseudos.gff", accession=GENOME_ACCESSION),
+        expand(f"{OUTPUT_DIR}/{{accession}}_ncbi_pseudos.gff", accession=GENOME_ACCESSION)
 
 rule download_genome:
     output:
-        fasta = "raw_data/{accession}.fasta",
-        protein = "raw_data/{accession}_protein.faa",
-        gff = "raw_data/{accession}.gff"
+        fasta = f"{OUTPUT_DIR}/raw_data/{{accession}}.fasta",
+        protein = f"{OUTPUT_DIR}/raw_data/{{accession}}_protein.faa",
+        gff = f"{OUTPUT_DIR}/raw_data/{{accession}}.gff"
     conda:
         "/home/phil/envs/ncbi_datasets.yaml"
     shell:
@@ -30,15 +31,15 @@ rule download_genome:
 
 rule annotate_bakta:
     input:
-        fasta = "raw_data/{accession}.fasta"
+        fasta = f"{OUTPUT_DIR}/raw_data/{{accession}}.fasta"
     output:
-        gff = "bakta_output/{accession}/{accession}.gbff"
+        gff = f"{OUTPUT_DIR}/bakta_output/{{accession}}/{{accession}}.gbff"
     conda:
         "/home/phil/envs/bakta.yaml"
     threads: 32
     shell:
         """
-        bakta --db {BAKTA_DB} --threads {threads} --output bakta_output/{wildcards.accession} \
+        bakta --db {BAKTA_DB} --threads {threads} --output {OUTPUT_DIR}/bakta_output/{wildcards.accession} \
         --prefix {wildcards.accession} --force {input.fasta}
         """
 
@@ -46,14 +47,14 @@ rule run_pseudofinder_bakta_db:
     input:
         gff = rules.annotate_bakta.output.gff
     output:
-        gff = "{accession}_bakta_db_pseudos.gff"
+        gff = f"{OUTPUT_DIR}/{{accession}}_bakta_db_pseudos.gff"
     conda:
         "/home/phil/envs/pseudofinder.yaml"
     threads: 8
     shell:
         """
         python ~/programs/pseudofinder/pseudofinder.py annotate -g {input.gff} \
-        --outprefix {wildcards.accession}_bakta_db \
+        --outprefix {OUTPUT_DIR}/{wildcards.accession}_bakta_db \
         --database {BAKTA_DB}/psc.dmnd -di -skpdb -t {threads}
         """
 
@@ -61,29 +62,30 @@ rule run_pseudofinder_salmonella:
     input:
         gff = rules.annotate_bakta.output.gff
     output:
-        gff = "{accession}_salmonella_pseudos.gff"
+        gff = f"{OUTPUT_DIR}/{{accession}}_salmonella_pseudos.gff"
     conda:
         "/home/phil/envs/pseudofinder.yaml"
     threads: 8
     shell:
         """
         python ~/programs/pseudofinder/pseudofinder.py annotate -g {input.gff} \
-        --outprefix {wildcards.accession}_salmonella \
+        --outprefix {OUTPUT_DIR}/{wildcards.accession}_salmonella \
         --database {SALMONELLA_PANGENOME} -di -t {threads}
         """
 
 rule run_pseudofinder_ncbi:
     input:
         gff = rules.annotate_bakta.output.gff,
-        protein = "raw_data/{accession}_protein.faa"
+        protein = f"{OUTPUT_DIR}/raw_data/{{accession}}_protein.faa"
     output:
-        gff = "{accession}_ncbi_pseudos.gff"
+        gff = f"{OUTPUT_DIR}/{{accession}}_ncbi_pseudos.gff"
     conda:
         "/home/phil/envs/pseudofinder.yaml"
     threads: 8
     shell:
         """
         python ~/programs/pseudofinder/pseudofinder.py annotate -g {input.gff} \
-        --outprefix {wildcards.accession}_ncbi \
+        --outprefix {OUTPUT_DIR}/{wildcards.accession}_ncbi \
         --database {input.protein} -di -t {threads}
         """
+
