@@ -1,10 +1,10 @@
 # Snakefile for genome analysis workflow
 
 # Define the accession and paths directly in the script
-GENOME_ACCESSION = "GCF_000016045.1"
+GENOME_ACCESSION = ['GCF_000020745.1', 'GCF_000020885.1', 'GCF_000009505.1', 'GCF_000018705.1', 'GCF_000195995.1', 'GCF_000007545.1', 'GCF_000011885.1', 'GCF_000026565.1', 'GCF_000020925.1', 'GCF_000009525.1', 'GCF_000008105.1', 'GCF_000018385.1']
 BAKTA_DB = "/data/fast/core/bakta/db"
 SALMONELLA_PANGENOME = "/data/fast/salmonella/isangi/pseudogenes/2024.10.03/uniref_taxonomy_id_28901_NOT_name_fr_2024_10_03.fasta"
-OUTPUT_DIR = "output"  # Define the output directory variable
+OUTPUT_DIR = f"/data/fast/salmonella/isangi/pseudogenes/2024.10.29/{GENOME_ACCESSION}"  # Define the output directory variable
 
 rule all:
     input:
@@ -21,12 +21,11 @@ rule download_genome:
         "/home/phil/envs/ncbi_datasets.yaml"
     shell:
         """
-        datasets download genome accession {wildcards.accession} --include genome,protein,gff3
-        unzip ncbi_dataset.zip
-        mv ncbi_dataset/data/{wildcards.accession}/*.fna {output.fasta}
-        mv ncbi_dataset/data/{wildcards.accession}/protein.faa {output.protein}
-        mv ncbi_dataset/data/{wildcards.accession}/*.gff {output.gff}
-        rm -rf ncbi_dataset ncbi_dataset.zip
+        datasets download genome accession {wildcards.accession} --include genome,protein,gff3 --filename {wildcards.accession}.zip
+        unzip {wildcards.accession}.zip
+        mv {wildcards.accession}/data/{wildcards.accession}/*.fna {output.fasta}
+        mv {wildcards.accession}/data/{wildcards.accession}/protein.faa {output.protein}
+        mv {wildcards.accession}/data/{wildcards.accession}/*.gff {output.gff}
         """
 
 rule annotate_bakta:
