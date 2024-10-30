@@ -69,15 +69,21 @@ def read_and_filter_data(file_path: str) -> pd.DataFrame:
         raise ValueError(f"Unsupported file type: {file_type}")
     return df
 
-def process_datasets(truth_file: str, call_files: List[Dict[str, str]]) -> pd.DataFrame:
+def process_datasets(truth_file: str, call_files: List[Dict[str, str]]) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
     truth_df = read_and_filter_data(truth_file)
     
     results = []
+    all_calls = {}
+    
     for call_file in call_files:
         call_df = read_and_filter_data(call_file['path'])
         
         if call_file['name'].lower() == 'bakta_pseudo':
             call_df = call_df[call_df['attribute'].notna() & call_df['attribute'].str.contains('pseudo=True')]
+        
+        call_df['in_truth'] = call_df.apply(lambda row: any(is_overlap(int(truth_row['start']), int(truth_row['stop']), 
+                                                                       int(row['start']), int(row['end'])) 
+                                                            for _, truth_row in truth_df.iterrows()), axis=1)
         
         sensitivity, ppv = calculate_sensitivity_ppv(truth_df, call_df)
         results.append({
@@ -85,14 +91,17 @@ def process_datasets(truth_file: str, call_files: List[Dict[str, str]]) -> pd.Da
             "Sensitivity": sensitivity,
             "PPV": ppv
         })
+        
+        all_calls[call_file['name']] = call_df
     
-    return pd.DataFrame(results)
+    return pd.DataFrame(results), all_calls
 
 def main():
     parser = argparse.ArgumentParser(description="Compare pseudogene calls against a truth set.")
     parser.add_argument("--truth", required=True, help="Path to the truth file")
     parser.add_argument("--calls", required=True, nargs='+', help="Paths to call files")
     parser.add_argument("--call_names", required=True, nargs='+', help="Names for each call dataset")
+    parser.add_argument("--output_dir", required=True, help="Directory to save output files")
     
     args = parser.parse_args()
     
@@ -102,8 +111,22 @@ def main():
     call_files = [{'path': path, 'name': name} 
                   for path, name in zip(args.calls, args.call_names)]
     
-    results_df = process_datasets(args.truth, call_files)
+    print(call_files)
+
+    results_df, all_calls = process_datasets(args.truth, call_files)
     print(results_df)
+    
+    # Create output directory if it doesn't exist
+    os.makedirs(args.output_dir, exist_ok=True)
+    
+    # Save results
+    results_df.to_csv(os.path.join(args.output_dir, 'summary_results.csv'), index=False)
+    
+    # Save call datasets with the new 'in_truth' column
+    for name, df in all_calls.items():
+        output_file = os.path.join(args.output_dir, f'{name}_calls_with_truth.csv')
+        df.to_csv(output_file, index=False)
+        print(f"Saved calls for {name} to {output_file}")
 
 if __name__ == "__main__":
     main()
