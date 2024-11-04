@@ -2,6 +2,7 @@ import pandas as pd
 import argparse
 from typing import List, Tuple, Dict
 import os
+import re
 
 def infer_file_type(file_path: str) -> str:
     _, extension = os.path.splitext(file_path.lower())
@@ -55,7 +56,31 @@ def calculate_sensitivity_ppv(truth_df: pd.DataFrame, call_df: pd.DataFrame) -> 
     
     return sensitivity, ppv
 
-def read_and_filter_data(file_path: str) -> pd.DataFrame:
+def extract_orf_percentage(attribute: str) -> float:
+    """Extract the ORF percentage from the attribute string."""
+    match = re.search(r'ORF is (\d+\.?\d*)%', attribute)
+    if match:
+        return float(match.group(1))
+    return None
+
+def filter_pseudofinder_calls(df: pd.DataFrame, max_orf_percentage: float = 100.0) -> pd.DataFrame:
+    """Filter pseudofinder calls based on ORF percentage."""
+    if 'attribute' not in df.columns:
+        return df
+    
+    def should_keep_row(row):
+        if 'ORF is' not in str(row['attribute']):
+            return True
+        
+        orf_percentage = extract_orf_percentage(row['attribute'])
+        if orf_percentage is None:
+            return True
+        
+        return orf_percentage <= max_orf_percentage
+    
+    return df[df.apply(should_keep_row, axis=1)]
+
+def read_and_filter_data(file_path: str, is_pseudofinder: bool = False, max_orf_percentage: float = None) -> pd.DataFrame:
     file_type = infer_file_type(file_path)
     if file_type == 'excel':
         df = pd.read_excel(file_path)
@@ -67,16 +92,21 @@ def read_and_filter_data(file_path: str) -> pd.DataFrame:
         df = df[df['seqname'] == 'contig_1']
     else:
         raise ValueError(f"Unsupported file type: {file_type}")
+    
+    if is_pseudofinder and max_orf_percentage is not None:
+        df = filter_pseudofinder_calls(df, max_orf_percentage)
+    
     return df
 
-def process_datasets(truth_file: str, call_files: List[Dict[str, str]]) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
+def process_datasets(truth_file: str, call_files: List[Dict[str, str]], max_orf_percentage: float = None) -> pd.DataFrame:
     truth_df = read_and_filter_data(truth_file)
     
     results = []
     all_calls = {}
     
     for call_file in call_files:
-        call_df = read_and_filter_data(call_file['path'])
+        is_pseudofinder = 'pseudofinder' in call_file['name'].lower()
+        call_df = read_and_filter_data(call_file['path'], is_pseudofinder, max_orf_percentage)
         
         if call_file['name'].lower() == 'bakta_pseudo':
             call_df = call_df[call_df['attribute'].notna() & call_df['attribute'].str.contains('pseudo=True')]
@@ -86,13 +116,22 @@ def process_datasets(truth_file: str, call_files: List[Dict[str, str]]) -> Tuple
                                                             for _, truth_row in truth_df.iterrows()), axis=1)
         
         sensitivity, ppv = calculate_sensitivity_ppv(truth_df, call_df)
+        
+        # Add filter status to dataset name if it's pseudofinder
+        dataset_name = call_file['name']
+        if is_pseudofinder and max_orf_percentage is not None:
+            dataset_name = f"{dataset_name} (ORF≤{max_orf_percentage}%)"
+        
         results.append({
-            "Dataset": call_file['name'],
+            "Dataset": dataset_name,
             "Sensitivity": sensitivity,
-            "PPV": ppv
+            "PPV": ppv,
+            "Total_Calls": len(call_df)
         })
         
-        all_calls[call_file['name']] = call_df
+        # Store the calls with a name that indicates if they were filtered
+        calls_key = f"{call_file['name']}_filtered_{max_orf_percentage}" if max_orf_percentage is not None else call_file['name']
+        all_calls[calls_key] = call_df
     
     return pd.DataFrame(results), all_calls
 
@@ -102,6 +141,8 @@ def main():
     parser.add_argument("--calls", required=True, nargs='+', help="Paths to call files")
     parser.add_argument("--call_names", required=True, nargs='+', help="Names for each call dataset")
     parser.add_argument("--output_dir", required=True, help="Directory to save output files")
+    parser.add_argument("--max_orf_percentage", type=float, default=100.0, 
+                      help="Maximum ORF percentage to include for pseudofinder calls (default: 100.0)")
     
     args = parser.parse_args()
     
@@ -111,22 +152,40 @@ def main():
     call_files = [{'path': path, 'name': name} 
                   for path, name in zip(args.calls, args.call_names)]
     
+    print("Processing files...")
     print(call_files)
 
-    results_df, all_calls = process_datasets(args.truth, call_files)
-    print(results_df)
+    # Run analysis without filtering
+    print("\nRunning analysis without ORF filtering...")
+    unfiltered_results, unfiltered_calls = process_datasets(args.truth, call_files)
+    
+    # Run analysis with filtering
+    print(f"\nRunning analysis with ORF filtering (max {args.max_orf_percentage}%)...")
+    filtered_results, filtered_calls = process_datasets(args.truth, call_files, args.max_orf_percentage)
+    
+    # Combine results
+    combined_results = pd.concat([unfiltered_results, filtered_results])
+    
+    print("\nCombined Results:")
+    print(combined_results)
     
     # Create output directory if it doesn't exist
     os.makedirs(args.output_dir, exist_ok=True)
     
-    # Save results
-    results_df.to_csv(os.path.join(args.output_dir, 'summary_results.csv'), index=False)
+    # Save combined results
+    combined_results.to_csv(os.path.join(args.output_dir, 'summary_results.csv'), index=False)
     
-    # Save call datasets with the new 'in_truth' column
-    for name, df in all_calls.items():
-        output_file = os.path.join(args.output_dir, f'{name}_calls_with_truth.csv')
+    # Save unfiltered call datasets
+    for name, df in unfiltered_calls.items():
+        output_file = os.path.join(args.output_dir, f'{name}_unfiltered_calls.csv')
         df.to_csv(output_file, index=False)
-        print(f"Saved calls for {name} to {output_file}")
+        print(f"Saved unfiltered calls for {name} to {output_file}")
+    
+    # Save filtered call datasets
+    for name, df in filtered_calls.items():
+        output_file = os.path.join(args.output_dir, f'{name}_filtered_calls.csv')
+        df.to_csv(output_file, index=False)
+        print(f"Saved filtered calls for {name} to {output_file}")
 
 if __name__ == "__main__":
     main()
