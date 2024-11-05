@@ -87,6 +87,7 @@ perform_kegg_enrichment <- function(gene_subset, background_genes, kegg_data, pa
   return(result_df)
 }
 
+
 # Example usage:
 # First get the pathway information (this step takes time)
 # You only need to run this once and can save the results
