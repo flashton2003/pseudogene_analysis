@@ -1,6 +1,6 @@
 import pandas as pd
 
-# Load the Excel files
+# Load the Excel files 
 nuccio_analysis = pd.read_excel('/Users/flashton/Dropbox/GordonGroup/STRATAA_XDR_Salmonella_Isangi/pseudogene_finding/2024.11.04/mbo001141769st1.adding_isangi.xlsx')
 nuccio_isangi_lookup = pd.read_excel('/Users/flashton/Dropbox/GordonGroup/STRATAA_XDR_Salmonella_Isangi/pseudogene_finding/2024.11.04/reciprocal_best_hits.lookup.xlsx')
 dbs_results = pd.read_excel('/Users/flashton/Dropbox/GordonGroup/STRATAA_XDR_Salmonella_Isangi/pseudogene_finding/2024.11.01/typmu_vs_isangi/results.dbs.xlsx')
