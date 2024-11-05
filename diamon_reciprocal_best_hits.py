@@ -13,11 +13,11 @@ df_isangi_vs_nucciocogs['protein_id'] = df_isangi_vs_nucciocogs['sseqid'].apply(
 df_nucciocogs_vs_isangi['protein_id'] = df_nucciocogs_vs_isangi['qseqid'].apply(lambda x: x.split('|')[1] if '|' in x else x)
 
 # Calculate query coverage and subject coverage
-df_isangi_vs_nucciocogs['query_cov'] = df_isangi_vs_nucciocogs['length'] / df_isangi_vs_nucciocogs['qlen'] * 100
-df_isangi_vs_nucciocogs['subject_cov'] = df_isangi_vs_nucciocogs['length'] / df_isangi_vs_nucciocogs['slen'] * 100
+df_isangi_vs_nucciocogs['query_cov'] = (df_isangi_vs_nucciocogs['length'] - df_isangi_vs_nucciocogs['gaps']) / df_isangi_vs_nucciocogs['qlen'] * 100
+df_isangi_vs_nucciocogs['subject_cov'] = (df_isangi_vs_nucciocogs['length'] - df_isangi_vs_nucciocogs['gaps']) / df_isangi_vs_nucciocogs['slen'] * 100
 
-df_nucciocogs_vs_isangi['query_cov'] = df_nucciocogs_vs_isangi['length'] / df_nucciocogs_vs_isangi['qlen'] * 100
-df_nucciocogs_vs_isangi['subject_cov'] = df_nucciocogs_vs_isangi['length'] / df_nucciocogs_vs_isangi['slen'] * 100
+df_nucciocogs_vs_isangi['query_cov'] =(df_nucciocogs_vs_isangi['length'] - df_nucciocogs_vs_isangi['gaps']) / df_nucciocogs_vs_isangi['qlen'] * 100
+df_nucciocogs_vs_isangi['subject_cov'] = (df_nucciocogs_vs_isangi['length'] - df_nucciocogs_vs_isangi['gaps']) / df_nucciocogs_vs_isangi['slen'] * 100
 
 # Filter based on query coverage, subject coverage, and evalue
 filtered_isangi_vs_nucciocogs = df_isangi_vs_nucciocogs[
@@ -32,9 +32,13 @@ filtered_nucciocogs_vs_isangi = df_nucciocogs_vs_isangi[
     (df_nucciocogs_vs_isangi['evalue'] < 1e-15)
 ]
 
+filtered_isangi_vs_nucciocogs.to_csv('~/Desktop/filtered_isangi_vs_nucciocogs.csv', index=False)
+
 # Identify the best hits (highest bitscore) for each query in each filtered DataFrame
 best_hits_isangi_vs_nucciocogs = filtered_isangi_vs_nucciocogs.groupby('qseqid').apply(lambda x: x.loc[x['bitscore'].idxmax()])
 best_hits_nucciocogs_vs_isangi = filtered_nucciocogs_vs_isangi.groupby('qseqid').apply(lambda x: x.loc[x['bitscore'].idxmax()])
+
+best_hits_isangi_vs_nucciocogs.to_csv('~/Desktop/best_hits_isangi_vs_nucciocogs.csv', index=False)
 
 print(best_hits_isangi_vs_nucciocogs)
 

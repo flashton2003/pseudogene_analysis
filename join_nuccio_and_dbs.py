@@ -21,6 +21,8 @@ nuccio_analysis['UniProtKB_ID'] = nuccio_analysis['Cross-reference'].apply(extra
 # Join nuccio_analysis with nuccio_isangi_lookup based on 'UniProtKB_ID' and 'protein_id'
 merged_df = pd.merge(nuccio_analysis, nuccio_isangi_lookup, left_on='UniProtKB_ID', right_on='protein_id', how='left')
 
+merged_df.to_excel('~/Desktop/merged_df.xlsx', index=False)
+
 # Join the result with dbs_results based on 'gene_2' and 'qseqid_isang'
 final_df = pd.merge(merged_df, dbs_results, left_on='qseqid_isang', right_on='gene_2', how='left')
 
