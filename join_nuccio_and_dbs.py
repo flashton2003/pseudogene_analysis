@@ -14,7 +14,7 @@ def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Process and merge Nuccio analysis with DBS results')
     parser.add_argument('--nuccio', required=True, help='Path to Nuccio analysis Excel file')
-    parser.add_argument('--lookup', required=True, help='Path to reciprocal best hits lookup Excel file')
+    parser.add_argument('--lookup', required=True, help='Path to reciprocal best hits lookup TSV file')
     parser.add_argument('--dbs', required=True, help='Path to DBS results Excel file')
     parser.add_argument('--anaerobic', required=True, help='Path to central anaerobic genes Excel file')
     parser.add_argument('--output', required=True, help='Path for output Excel file')
@@ -23,7 +23,7 @@ def main():
 
     # Load the Excel files
     nuccio_analysis = pd.read_excel(args.nuccio)
-    nuccio_isangi_lookup = pd.read_excel(args.lookup)
+    nuccio_isangi_lookup = pd.read_csv(args.lookup, sep = '\t')
     dbs_results = pd.read_excel(args.dbs)
     anaerobic_genes = pd.read_excel(args.anaerobic)
     
