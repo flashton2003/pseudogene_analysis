@@ -24,7 +24,7 @@ def main():
     # Load the Excel files
     nuccio_analysis = pd.read_excel(args.nuccio)
     nuccio_isangi_lookup = pd.read_csv(args.lookup, sep = '\t')
-    dbs_results = pd.read_csv(args.dbs, sep = '\t')
+    dbs_results = pd.read_csv(args.dbs, sep = '\t', skiprows=1)
     anaerobic_genes = pd.read_excel(args.anaerobic)
     
     # Create UniProtKB_ID column
@@ -39,6 +39,8 @@ def main():
                         how='left')
     
     # Join with dbs_results
+    merged_df.to_csv('merged_df.csv', sep =',')
+    dbs_results.to_csv('dbs_results.csv')
     final_df = pd.merge(merged_df, dbs_results, 
                        left_on='qseqid_fwd', right_on='gene_2', 
                        how='left')
