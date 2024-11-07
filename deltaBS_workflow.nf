@@ -4,26 +4,28 @@
 nextflow.enable.dsl = 2
 
 // Params
-params.input_dir = '/data/fast/salmonella/isangi/pseudogenes/2024.11.07'
-params.reference_embl = '/data/fast/salmonella/isangi/pseudogenes/2024.11.01/GCF_000022165.1_ASM2216v1_genomic/GCF_000022165.1.embl'
-params.reference_faa = '/data/fast/salmonella/isangi/pseudogenes/2024.11.06/2024.11.06.nuccio_baumler_uniprotkb.clean.fasta'
-params.nuccio_xlsx = '/data/fast/salmonella/isangi/pseudogenes/2024.11.05/mbo001141769st1.adding_isangi.xlsx'
-params.anaerobic_xlsx = '/data/fast/salmonella/isangi/pseudogenes/2024.11.05/mbo001141769st7.central_anaerobic_genes.xlsx'
-// params.output_dir = "results"
-params.strain_lookup = [
-    'GCF_000020705.1': 'SL476',
-    'GCF_000020745.1': 'CVM19633',
-    'GCF_000020885.1': 'SL483',
-    'GCF_000009505.1': 'P125109',
-    'GCF_000018705.1': 'SPB7',
-    'GCF_000195995.1': 'CT18',
-    'GCF_000007545.1': 'Ty2',
-    'GCF_000011885.1': 'ATCC 9150',
-    'GCF_000020925.1': 'CT_02021853',
-    'GCF_000009525.1': '287/91',
-    'GCF_000008105.1': 'SC-B67',
-    'GCF_000018385.1': 'RKS4594'
-]
+params {
+    input_dir = null
+    reference_embl = null
+    reference_faa = null
+    nuccio_xlsx = null
+    anaerobic_xlsx = null
+    output_dir = "results"
+    strain_lookup = [
+        'GCF_000020705.1': 'SL476',
+        'GCF_000020745.1': 'CVM19633',
+        'GCF_000020885.1': 'SL483',
+        'GCF_000009505.1': 'P125109',
+        'GCF_000018705.1': 'SPB7',
+        'GCF_000195995.1': 'CT18',
+        'GCF_000007545.1': 'Ty2',
+        'GCF_000011885.1': 'ATCC 9150',
+        'GCF_000020925.1': 'CT_02021853',
+        'GCF_000009525.1': '287/91',
+        'GCF_000008105.1': 'SC-B67',
+        'GCF_000018385.1': 'RKS4594'
+    ]
+}
 
 // Process to run deltaBS.pl in Docker container
 process runDeltaBS {
@@ -52,7 +54,7 @@ process runDeltaBS {
 
 // Process to run reciprocal diamond analysis
 process runReciprocalDiamond {
-    conda 'deltaBS_analysis_env.yaml'
+    conda 'environment.yml'
     
     input:
     tuple val(strain_id), path(faa_file)
@@ -63,7 +65,7 @@ process runReciprocalDiamond {
     
     script:
     """
-    python diamon_reciprocal_best_hits.py \
+    python ../scripts/diamon_reciprocal_best_hits.py \
         --query_fasta ${faa_file} \
         --subject_fasta ${reference_faa} \
         --output ${strain_id}_vs_nuccio.reciprocal_diamond.tsv
@@ -72,7 +74,7 @@ process runReciprocalDiamond {
 
 // Process to join Nuccio and DBS results
 process joinNuccioAndDBS {
-    conda 'deltaBS_analysis_env.yaml'
+    conda 'environment.yml'
     
     input:
     tuple val(strain_id), path(diamond_results), path(dbs_results)
@@ -84,7 +86,7 @@ process joinNuccioAndDBS {
     
     script:
     """
-    python join_nuccio_and_dbs.py \
+    python ../scripts/join_nuccio_and_dbs.py \
         --nuccio ${nuccio_xlsx} \
         --lookup ${diamond_results} \
         --dbs ${dbs_results} \
@@ -95,7 +97,7 @@ process joinNuccioAndDBS {
 
 // Process to calculate summary statistics
 process calcSummaryStats {
-    conda 'deltaBS_analysis_env.yaml'
+    conda 'environment.yml'
     
     input:
     tuple val(strain_id), path(combined_results)
@@ -106,7 +108,7 @@ process calcSummaryStats {
     script:
     def strain_name = params.strain_lookup[strain_id]
     """
-    python calc_deltabs_summary_stats.py \
+    python ../scripts/calc_deltabs_summary_stats.py \
         ${combined_results} \
         ${strain_name} \
         > ${strain_id}_summary_stats.txt
@@ -115,31 +117,30 @@ process calcSummaryStats {
 
 // Main workflow
 workflow {
-    // Channel for input files
-    Channel
-        .fromPath("${params.input_dir}/*")
-        .filter { it.isDirectory() }
-        .map { dir ->
-            def strain_id = dir.name
-            def embl = file("${dir}/${strain_id}.embl")
-            def faa = file("${dir}/${strain_id}.faa")
-            return tuple(strain_id, embl, faa)
+    // Create channels for EMBL and FAA files
+    embl_files = Channel
+        .fromPath("${params.input_dir}/*.embl")
+        .map { file -> 
+            def strain_id = file.name.toString().tokenize('.')[0]
+            return tuple(strain_id, file)
         }
-        .branch {
-            embl: it[1].exists()
-            faa: it[2].exists()
+
+    faa_files = Channel
+        .fromPath("${params.input_dir}/*.faa")
+        .map { file -> 
+            def strain_id = file.name.toString().tokenize('.')[0]
+            return tuple(strain_id, file)
         }
-        .set { input_files }
 
     // Run deltaBS
     deltaBS_results = runDeltaBS(
-        input_files.embl.map { it[0,1] }, 
+        embl_files,
         params.reference_embl
     )
 
     // Run reciprocal diamond
     diamond_results = runReciprocalDiamond(
-        input_files.faa.map { it[0,2] },
+        faa_files,
         params.reference_faa
     )
 
