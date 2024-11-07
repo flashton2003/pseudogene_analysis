@@ -23,8 +23,8 @@ def main():
 
     # Load the Excel files
     nuccio_analysis = pd.read_excel(args.nuccio)
-    nuccio_isangi_lookup = pd.read_csv(args.lookup, sep = '\t')
-    dbs_results = pd.read_csv(args.dbs, sep = '\t', skiprows=1)
+    nuccio_isangi_lookup = pd.read_csv(args.lookup, sep='\t')
+    dbs_results = pd.read_csv(args.dbs, sep='\t', skiprows=1)
     anaerobic_genes = pd.read_excel(args.anaerobic)
     
     # Create UniProtKB_ID column
@@ -39,8 +39,6 @@ def main():
                         how='left')
     
     # Join with dbs_results
-    #merged_df.to_csv('merged_df.csv', sep =',')
-    #dbs_results.to_csv('dbs_results.csv')
     final_df = pd.merge(merged_df, dbs_results, 
                        left_on='qseqid_fwd', right_on='gene_2', 
                        how='left')
@@ -52,12 +50,21 @@ def main():
     # Create new column marking central anaerobic metabolism genes
     final_df['central anaerobic metabolism gene?'] = final_df['Reference locus tag(s)'].isin(anaerobic_locus_tags)
     
-    # Save the final dataframe
-    final_df.to_excel(args.output, index=False)
+    # Create deduplicated version
+    # Sort by delta-bitscore in descending order and keep first occurrence of each Index
+    dedup_df = final_df.sort_values('delta-bitscore', ascending=False).drop_duplicates(subset=['Index'])
+    
+    # Save both dataframes to different sheets in the same Excel file
+    with pd.ExcelWriter(args.output, engine='openpyxl') as writer:
+        final_df.to_excel(writer, sheet_name='Complete_Data', index=False)
+        dedup_df.to_excel(writer, sheet_name='Deduplicated_Data', index=False)
     
     print(f"Processing complete. Output saved to: {args.output}")
-    print("\nFirst few rows of the final dataframe:")
-    print(final_df.head())
+    print("Sheet names:")
+    print("- Complete_Data: contains all rows")
+    print("- Deduplicated_Data: contains one row per Index (highest delta-bitscore)")
+    print("\nFirst few rows of the deduplicated data:")
+    print(dedup_df.head())
 
 if __name__ == "__main__":
     main()
