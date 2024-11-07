@@ -10,6 +10,31 @@ def extract_uniprot_id(cross_ref):
             return part.replace('UniProtKB:', '')
     return None
 
+def select_row_for_index(group):
+    """
+    Select the appropriate row for each Index group based on the specified logic.
+    """
+    # Sort by delta-bitscore in descending order
+    sorted_group = group.sort_values('delta-bitscore', ascending=False)
+    
+    # Check if any rows have loss_of_function = 1
+    has_loss_of_function = (sorted_group['loss_of_function'] == 1).any()
+    
+    if not has_loss_of_function:
+        # If no loss of function, take highest delta-bitscore row
+        return sorted_group.iloc[0]
+    else:
+        # Check highest delta-bitscore row
+        if sorted_group.iloc[0]['loss_of_function'] == 1:
+            return sorted_group.iloc[0]
+        # Check lowest delta-bitscore row
+        elif sorted_group.iloc[-1]['loss_of_function'] == 1:
+            return sorted_group.iloc[-1]
+        else:
+            # If neither highest nor lowest has loss_of_function = 1
+            # Take highest delta-bitscore row
+            return sorted_group.iloc[0]
+
 def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Process and merge Nuccio analysis with DBS results')
@@ -50,9 +75,8 @@ def main():
     # Create new column marking central anaerobic metabolism genes
     final_df['central anaerobic metabolism gene?'] = final_df['Reference locus tag(s)'].isin(anaerobic_locus_tags)
     
-    # Create deduplicated version
-    # Sort by delta-bitscore in descending order and keep first occurrence of each Index
-    dedup_df = final_df.sort_values('delta-bitscore', ascending=False).drop_duplicates(subset=['Index'])
+    # Create deduplicated version using the new logic
+    dedup_df = pd.DataFrame(final_df.groupby('Index').apply(select_row_for_index)).reset_index(drop=True)
     
     # Save both dataframes to different sheets in the same Excel file
     with pd.ExcelWriter(args.output, engine='openpyxl') as writer:
@@ -62,7 +86,7 @@ def main():
     print(f"Processing complete. Output saved to: {args.output}")
     print("Sheet names:")
     print("- Complete_Data: contains all rows")
-    print("- Deduplicated_Data: contains one row per Index (highest delta-bitscore)")
+    print("- Deduplicated_Data: contains one row per Index based on selection criteria")
     print("\nFirst few rows of the deduplicated data:")
     print(dedup_df.head())
 
