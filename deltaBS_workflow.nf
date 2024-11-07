@@ -3,30 +3,6 @@
 // Enable DSL 2
 nextflow.enable.dsl = 2
 
-// Params
-params {
-    input_dir = null
-    reference_embl = null
-    reference_faa = null
-    nuccio_xlsx = null
-    anaerobic_xlsx = null
-    output_dir = "results"
-    strain_lookup = [
-        'GCF_000020705.1': 'SL476',
-        'GCF_000020745.1': 'CVM19633',
-        'GCF_000020885.1': 'SL483',
-        'GCF_000009505.1': 'P125109',
-        'GCF_000018705.1': 'SPB7',
-        'GCF_000195995.1': 'CT18',
-        'GCF_000007545.1': 'Ty2',
-        'GCF_000011885.1': 'ATCC 9150',
-        'GCF_000020925.1': 'CT_02021853',
-        'GCF_000009525.1': '287/91',
-        'GCF_000008105.1': 'SC-B67',
-        'GCF_000018385.1': 'RKS4594'
-    ]
-}
-
 // Process to run deltaBS.pl in Docker container
 process runDeltaBS {
     container 'delta-bit-score'
