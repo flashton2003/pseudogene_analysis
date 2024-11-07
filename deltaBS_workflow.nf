@@ -3,28 +3,6 @@
 // Enable DSL 2
 nextflow.enable.dsl = 2
 
-// Params
-params.input_dir = '/data/fast/salmonella/isangi/pseudogenes/2024.11.07'
-params.reference_embl = '/data/fast/salmonella/isangi/pseudogenes/2024.11.01/GCF_000022165.1_ASM2216v1_genomic/GCF_000022165.1.embl'
-params.reference_faa = '/data/fast/salmonella/isangi/pseudogenes/2024.11.06/2024.11.06.nuccio_baumler_uniprotkb.clean.fasta'
-params.nuccio_xlsx = '/data/fast/salmonella/isangi/pseudogenes/2024.11.05/mbo001141769st1.adding_isangi.xlsx'
-params.anaerobic_xlsx = '/data/fast/salmonella/isangi/pseudogenes/2024.11.05/mbo001141769st7.central_anaerobic_genes.xlsx'
-// params.output_dir = "results"
-params.strain_lookup = [
-    'GCF_000020705.1': 'SL476',
-    'GCF_000020745.1': 'CVM19633',
-    'GCF_000020885.1': 'SL483',
-    'GCF_000009505.1': 'P125109',
-    'GCF_000018705.1': 'SPB7',
-    'GCF_000195995.1': 'CT18',
-    'GCF_000007545.1': 'Ty2',
-    'GCF_000011885.1': 'ATCC 9150',
-    'GCF_000020925.1': 'CT_02021853',
-    'GCF_000009525.1': '287/91',
-    'GCF_000008105.1': 'SC-B67',
-    'GCF_000018385.1': 'RKS4594'
-]
-
 // Process to run deltaBS.pl in Docker container
 process runDeltaBS {
     container 'delta-bit-score'
