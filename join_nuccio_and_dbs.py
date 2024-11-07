@@ -39,8 +39,8 @@ def main():
                         how='left')
     
     # Join with dbs_results
-    merged_df.to_csv('merged_df.csv', sep =',')
-    dbs_results.to_csv('dbs_results.csv')
+    #merged_df.to_csv('merged_df.csv', sep =',')
+    #dbs_results.to_csv('dbs_results.csv')
     final_df = pd.merge(merged_df, dbs_results, 
                        left_on='qseqid_fwd', right_on='gene_2', 
                        how='left')
