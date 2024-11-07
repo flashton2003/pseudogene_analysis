@@ -6,6 +6,7 @@ nextflow.enable.dsl = 2
 // Process to run deltaBS.pl in Docker container
 process runDeltaBS {
     container 'delta-bit-score'
+    containerOptions = '-v /data/fast/salmonella/isangi/pseudogenes/2024.11.01:/mnt/deltaBS'
     
     input:
     tuple val(strain_id), path(embl_file)
@@ -22,15 +23,15 @@ process runDeltaBS {
         -f2 ${embl_file} \
         -o ${strain_id} \
         -hp /usr/bin/ \
-        -hd ./ \
+        -hd /mnt/deltaBS \
         -t /tmp \
         -C 32
-    """
+   """
 }
 
 // Process to run reciprocal diamond analysis
 process runReciprocalDiamond {
-    conda 'environment.yml'
+    conda 'scripts/deltaBS_analysis_env.yml'
     
     input:
     tuple val(strain_id), path(faa_file)
@@ -41,7 +42,7 @@ process runReciprocalDiamond {
     
     script:
     """
-    python ../scripts/diamon_reciprocal_best_hits.py \
+    python /data/fast/salmonella/isangi/pseudogenes/scripts/diamon_reciprocal_best_hits.py \
         --query_fasta ${faa_file} \
         --subject_fasta ${reference_faa} \
         --output ${strain_id}_vs_nuccio.reciprocal_diamond.tsv
@@ -50,7 +51,7 @@ process runReciprocalDiamond {
 
 // Process to join Nuccio and DBS results
 process joinNuccioAndDBS {
-    conda 'environment.yml'
+    conda 'scripts/deltaBS_analysis_env.yml'
     
     input:
     tuple val(strain_id), path(diamond_results), path(dbs_results)
@@ -62,7 +63,7 @@ process joinNuccioAndDBS {
     
     script:
     """
-    python ../scripts/join_nuccio_and_dbs.py \
+    python scripts/join_nuccio_and_dbs.py \
         --nuccio ${nuccio_xlsx} \
         --lookup ${diamond_results} \
         --dbs ${dbs_results} \
@@ -73,7 +74,7 @@ process joinNuccioAndDBS {
 
 // Process to calculate summary statistics
 process calcSummaryStats {
-    conda 'environment.yml'
+    conda 'scripts/deltaBS_analysis_env.yml'
     
     input:
     tuple val(strain_id), path(combined_results)
@@ -84,7 +85,7 @@ process calcSummaryStats {
     script:
     def strain_name = params.strain_lookup[strain_id]
     """
-    python ../scripts/calc_deltabs_summary_stats.py \
+    python scripts/calc_deltabs_summary_stats.py \
         ${combined_results} \
         ${strain_name} \
         > ${strain_id}_summary_stats.txt
