@@ -76,7 +76,13 @@ def main():
     final_df['central anaerobic metabolism gene?'] = final_df['Reference locus tag(s)'].isin(anaerobic_locus_tags)
     
     # Create deduplicated version using the new logic
-    dedup_df = pd.DataFrame(final_df.groupby('Index').apply(select_row_for_index)).reset_index(drop=True)
+    # Fix for deprecation warning: explicitly handle the Index column
+    dedup_rows = []
+    for idx, group in final_df.groupby('Index'):
+        selected_row = select_row_for_index(group)
+        dedup_rows.append(selected_row)
+    
+    dedup_df = pd.DataFrame(dedup_rows)
     
     # Save both dataframes to different sheets in the same Excel file
     with pd.ExcelWriter(args.output, engine='openpyxl') as writer:
