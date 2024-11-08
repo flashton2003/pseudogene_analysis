@@ -63,7 +63,7 @@ process joinNuccioAndDBS {
     
     script:
     """
-    python scripts/join_nuccio_and_dbs.py \
+    python /data/fast/salmonella/isangi/pseudogenes/scripts/join_nuccio_and_dbs.py \
         --nuccio ${nuccio_xlsx} \
         --lookup ${diamond_results} \
         --dbs ${dbs_results} \
@@ -85,7 +85,7 @@ process calcSummaryStats {
     script:
     def strain_name = params.strain_lookup[strain_id]
     """
-    python scripts/calc_deltabs_summary_stats.py \
+    python /data/fast/salmonella/isangi/pseudogenes/scripts/calc_deltabs_summary_stats.py \
         ${combined_results} \
         ${strain_name} \
         > ${strain_id}_summary_stats.txt
@@ -116,18 +116,18 @@ workflow {
     )
 
     // Run reciprocal diamond
-    diamond_results = runReciprocalDiamond(
-        faa_files,
-        params.reference_faa
-    )
+    //diamond_results = runReciprocalDiamond(
+    //    faa_files,
+    //    params.reference_faa
+    //)
 
     // Join the results
-    combined_results = joinNuccioAndDBS(
-        deltaBS_results.join(diamond_results),
-        params.nuccio_xlsx,
-        params.anaerobic_xlsx
-    )
+    //combined_results = joinNuccioAndDBS(
+    //    deltaBS_results.join(diamond_results),
+    //    params.nuccio_xlsx,
+    //    params.anaerobic_xlsx
+    //)
 
     // Calculate summary statistics
-    calcSummaryStats(combined_results)
+    //calcSummaryStats(combined_results)
 }
