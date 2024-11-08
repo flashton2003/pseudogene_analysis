@@ -35,15 +35,20 @@ SEQNAME_MAPPING = {
     'GCF_000195995.1': {'contig_1': 'NC_003198.1', 'contig_2': 'NC_003384.1', 'contig_3': 'NC_003385.1'}
 }
 
-def sanitize_coordinate(value: str) -> int:
+def sanitize_coordinate(value: str) -> float:
     """
-    Clean coordinate values by removing non-numeric characters and converting to int
+    Clean coordinate values by removing non-numeric characters (except minus sign and decimal point)
+    and converting to a float.
     """
     if pd.isna(value):
-        return 0
-    # Remove any non-numeric characters (except minus sign for any negative coordinates)
-    cleaned = re.sub(r'[^\d-]', '', str(value))
-    return int(cleaned) if cleaned else 0
+        return 0.0
+    # Allow only digits, minus sign, and decimal point
+    cleaned = re.sub(r'[^\d.-]', '', str(value))
+    try:
+        return float(cleaned)
+    except ValueError:
+        return 0.0  # Return 0.0 if conversion fails
+
 
 def sanitize_seqname(value: str) -> str:
     """
@@ -123,13 +128,13 @@ def process_truth_data(file_path: str, genome_accession: str) -> pd.DataFrame:
     truth_df = truth_df[strain_col.str.startswith('2')]
     
     # Process coordinates column
-    coord_splits = truth_df['Coordinates'].str.split('|')
+    coord_splits = truth_df[strain_name].str.split('|')
     
     # Create new dataframe with processed coordinates
     processed_df = pd.DataFrame({
-        'seqname': coord_splits.str[0].apply(sanitize_seqname),
-        'start': coord_splits.str[1].apply(sanitize_coordinate),
-        'stop': coord_splits.str[2].apply(sanitize_coordinate)
+        'seqname': coord_splits.str[2].apply(sanitize_seqname),
+        'start': coord_splits.str[3].apply(sanitize_coordinate),
+        'stop': coord_splits.str[4].apply(sanitize_coordinate)
     })
     
     # Convert seqnames
@@ -158,9 +163,10 @@ def read_and_filter_data(file_path: str, genome_accession: str, is_pseudofinder:
         df['seqname'] = df['seqname'].apply(sanitize_seqname)
         df['seqname'] = df['seqname'].apply(lambda x: convert_seqname(x, genome_accession))
     
+    print(df['start'])
     if 'start' in df.columns:
         df['start'] = df['start'].apply(sanitize_coordinate)
-    
+    print(df['start'])
     if 'end' in df.columns:
         df['end'] = df['end'].apply(sanitize_coordinate)
     
@@ -225,7 +231,8 @@ def process_datasets(truth_file: str, genome_accession: str, call_files: List[Di
         
         if call_file['name'].lower() == 'bakta_pseudo':
             call_df = call_df[call_df['attribute'].notna() & call_df['attribute'].str.contains('pseudo=True')]
-        
+            # print(call_df)
+        truth_df.to_csv('~/Desktop/truth.csv')
         sensitivity, ppv = calculate_sensitivity_ppv(truth_df, call_df)
         
         # Add filter status to dataset name if it's pseudofinder
@@ -283,18 +290,21 @@ def main():
     # Create output directory if it doesn't exist
     os.makedirs(args.output_dir, exist_ok=True)
     
+    # add a column for the genome accession
+    combined_results['genome_accession'] = args.genome_accession
+
     # Save combined results
-    combined_results.to_csv(os.path.join(args.output_dir, 'summary_results.csv'), index=False)
+    combined_results.to_csv(os.path.join(args.output_dir, f'{args.genome_accession}_summary_results.csv'), index=False)
     
     # Save unfiltered call datasets
     for name, df in unfiltered_calls.items():
-        output_file = os.path.join(args.output_dir, f'{name}_unfiltered_calls.csv')
+        output_file = os.path.join(args.output_dir, f'{args.genome_accession}_{name}_unfiltered_calls.csv')
         df.to_csv(output_file, index=False)
         print(f"Saved unfiltered calls for {name} to {output_file}")
     
     # Save filtered call datasets
     for name, df in filtered_calls.items():
-        output_file = os.path.join(args.output_dir, f'{name}_filtered_calls.csv')
+        output_file = os.path.join(args.output_dir, f'{args.genome_accession}_{name}_filtered_calls.csv')
         df.to_csv(output_file, index=False)
         print(f"Saved filtered calls for {name} to {output_file}")
 
