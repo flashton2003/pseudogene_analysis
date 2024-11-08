@@ -6,6 +6,7 @@ nextflow.enable.dsl = 2
 // Process to run deltaBS.pl in Docker container
 process runDeltaBS {
     container 'delta-bit-score'
+    containerOptions = '-v /data/fast/salmonella/isangi/pseudogenes/2024.11.01:/mnt/deltaBS'
     
     input:
     tuple val(strain_id), path(embl_file)
@@ -22,15 +23,15 @@ process runDeltaBS {
         -f2 ${embl_file} \
         -o ${strain_id} \
         -hp /usr/bin/ \
-        -hd ./ \
+        -hd /mnt/deltaBS \
         -t /tmp \
         -C 32
-    """
+   """
 }
 
 // Process to run reciprocal diamond analysis
 process runReciprocalDiamond {
-    conda 'deltaBS_analysis_env.yaml'
+    conda 'scripts/deltaBS_analysis_env.yml'
     
     input:
     tuple val(strain_id), path(faa_file)
@@ -41,7 +42,7 @@ process runReciprocalDiamond {
     
     script:
     """
-    python diamon_reciprocal_best_hits.py \
+    python /data/fast/salmonella/isangi/pseudogenes/scripts/diamon_reciprocal_best_hits.py \
         --query_fasta ${faa_file} \
         --subject_fasta ${reference_faa} \
         --output ${strain_id}_vs_nuccio.reciprocal_diamond.tsv
@@ -50,7 +51,7 @@ process runReciprocalDiamond {
 
 // Process to join Nuccio and DBS results
 process joinNuccioAndDBS {
-    conda 'deltaBS_analysis_env.yaml'
+    conda 'scripts/deltaBS_analysis_env.yml'
     
     input:
     tuple val(strain_id), path(diamond_results), path(dbs_results)
@@ -62,7 +63,7 @@ process joinNuccioAndDBS {
     
     script:
     """
-    python join_nuccio_and_dbs.py \
+    python scripts/join_nuccio_and_dbs.py \
         --nuccio ${nuccio_xlsx} \
         --lookup ${diamond_results} \
         --dbs ${dbs_results} \
@@ -73,7 +74,7 @@ process joinNuccioAndDBS {
 
 // Process to calculate summary statistics
 process calcSummaryStats {
-    conda 'deltaBS_analysis_env.yaml'
+    conda 'scripts/deltaBS_analysis_env.yml'
     
     input:
     tuple val(strain_id), path(combined_results)
@@ -84,7 +85,7 @@ process calcSummaryStats {
     script:
     def strain_name = params.strain_lookup[strain_id]
     """
-    python calc_deltabs_summary_stats.py \
+    python scripts/calc_deltabs_summary_stats.py \
         ${combined_results} \
         ${strain_name} \
         > ${strain_id}_summary_stats.txt
@@ -93,31 +94,30 @@ process calcSummaryStats {
 
 // Main workflow
 workflow {
-    // Channel for input files
-    Channel
-        .fromPath("${params.input_dir}/*")
-        .filter { it.isDirectory() }
-        .map { dir ->
-            def strain_id = dir.name
-            def embl = file("${dir}/${strain_id}.embl")
-            def faa = file("${dir}/${strain_id}.faa")
-            return tuple(strain_id, embl, faa)
+    // Create channels for EMBL and FAA files
+    embl_files = Channel
+        .fromPath("${params.input_dir}/*.embl")
+        .map { file -> 
+            def strain_id = file.name.toString().tokenize('.')[0]
+            return tuple(strain_id, file)
         }
-        .branch {
-            embl: it[1].exists()
-            faa: it[2].exists()
+
+    faa_files = Channel
+        .fromPath("${params.input_dir}/*.faa")
+        .map { file -> 
+            def strain_id = file.name.toString().tokenize('.')[0]
+            return tuple(strain_id, file)
         }
-        .set { input_files }
 
     // Run deltaBS
     deltaBS_results = runDeltaBS(
-        input_files.embl.map { it[0,1] }, 
+        embl_files,
         params.reference_embl
     )
 
     // Run reciprocal diamond
     diamond_results = runReciprocalDiamond(
-        input_files.faa.map { it[0,2] },
+        faa_files,
         params.reference_faa
     )
 

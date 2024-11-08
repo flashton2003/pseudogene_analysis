@@ -12,7 +12,11 @@ def extract_uniprot_id(cross_ref):
 
 def select_row_for_index(group):
     """
-    Select the appropriate row for each Index group based on the specified logic.
+    Select the appropriate row for each Index group based on the specified logic:
+    1. If no loss_of_function=1, take highest delta-bitscore row
+    2. If highest positive delta-bitscore has loss_of_function=1, take that row
+    3. If lowest delta-bitscore has loss_of_function=1, take that row
+    4. Otherwise, take highest delta-bitscore row
     """
     # Sort by delta-bitscore in descending order
     sorted_group = group.sort_values('delta-bitscore', ascending=False)
@@ -24,15 +28,21 @@ def select_row_for_index(group):
         # If no loss of function, take highest delta-bitscore row
         return sorted_group.iloc[0]
     else:
-        # Check highest delta-bitscore row
-        if sorted_group.iloc[0]['loss_of_function'] == 1:
-            return sorted_group.iloc[0]
-        # Check lowest delta-bitscore row
+        # Get rows with positive delta-bitscore and loss_of_function=1
+        positive_dbs_with_loss = sorted_group[
+            (sorted_group['delta-bitscore'] > 0) & 
+            (sorted_group['loss_of_function'] == 1)
+        ]
+        
+        if not positive_dbs_with_loss.empty:
+            # Take the highest delta-bitscore row among positive values with loss_of_function=1
+            return positive_dbs_with_loss.iloc[0]
         elif sorted_group.iloc[-1]['loss_of_function'] == 1:
+            # If no positive delta-bitscore with loss_of_function=1,
+            # check if lowest delta-bitscore has loss_of_function=1
             return sorted_group.iloc[-1]
         else:
-            # If neither highest nor lowest has loss_of_function = 1
-            # Take highest delta-bitscore row
+            # If neither condition is met, take highest delta-bitscore row
             return sorted_group.iloc[0]
 
 def main():
@@ -76,7 +86,6 @@ def main():
     final_df['central anaerobic metabolism gene?'] = final_df['Reference locus tag(s)'].isin(anaerobic_locus_tags)
     
     # Create deduplicated version using the new logic
-    # Fix for deprecation warning: explicitly handle the Index column
     dedup_rows = []
     for idx, group in final_df.groupby('Index'):
         selected_row = select_row_for_index(group)
@@ -93,6 +102,11 @@ def main():
     print("Sheet names:")
     print("- Complete_Data: contains all rows")
     print("- Deduplicated_Data: contains one row per Index based on selection criteria")
+    print("\nSelection criteria for deduplicated data:")
+    print("1. If no loss_of_function=1 rows, take highest delta-bitscore")
+    print("2. If highest positive delta-bitscore has loss_of_function=1, take that")
+    print("3. If lowest delta-bitscore has loss_of_function=1, take that")
+    print("4. Otherwise, take highest delta-bitscore")
     print("\nFirst few rows of the deduplicated data:")
     print(dedup_df.head())
 
