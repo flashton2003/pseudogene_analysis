@@ -2,6 +2,7 @@ import pandas as pd
 import argparse
 from collections import defaultdict
 import re
+import os
 
 # Mapping dictionaries remain unchanged
 STRAIN_MAPPING = {
@@ -61,6 +62,7 @@ def parse_gff(gff_file, accession):
     """Parse GFF file and convert seqnames using mapping"""
     calls = []
     seqname_map = SEQNAME_MAPPING[accession]
+    is_bakta = gff_file.lower().endswith('bakta.gff3')
     
     with open(gff_file) as f:
         for line in f:
@@ -68,6 +70,10 @@ def parse_gff(gff_file, accession):
                 continue
             fields = line.strip().split('\t')
             if len(fields) < 8:
+                continue
+                
+            # For Bakta files, only process records marked as pseudogenes
+            if is_bakta and not "pseudo=True" in fields[8]:
                 continue
                 
             # Sanitize the seqname before mapping
