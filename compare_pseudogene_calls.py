@@ -16,7 +16,8 @@ STRAIN_MAPPING = {
     'GCF_000020925.1': 'CT_02021853',
     'GCF_000009525.1': '287/91',
     'GCF_000008105.1': 'SC-B67',
-    'GCF_000018385.1': 'RKS4594'
+    'GCF_000018385.1': 'RKS4594',
+    'GCF_000026565.1': 'AKU_12601'
 }
 
 SEQNAME_MAPPING = {
@@ -163,10 +164,10 @@ def read_and_filter_data(file_path: str, genome_accession: str, is_pseudofinder:
         df['seqname'] = df['seqname'].apply(sanitize_seqname)
         df['seqname'] = df['seqname'].apply(lambda x: convert_seqname(x, genome_accession))
     
-    print(df['start'])
+    # print(df['start'])
     if 'start' in df.columns:
         df['start'] = df['start'].apply(sanitize_coordinate)
-    print(df['start'])
+    # print(df['start'])
     if 'end' in df.columns:
         df['end'] = df['end'].apply(sanitize_coordinate)
     
@@ -296,17 +297,18 @@ def main():
     # Save combined results
     combined_results.to_csv(os.path.join(args.output_dir, f'{args.genome_accession}_summary_results.csv'), index=False)
     
-    # Save unfiltered call datasets
-    for name, df in unfiltered_calls.items():
-        output_file = os.path.join(args.output_dir, f'{args.genome_accession}_{name}_unfiltered_calls.csv')
-        df.to_csv(output_file, index=False)
-        print(f"Saved unfiltered calls for {name} to {output_file}")
+    # the below isn't needed, as is same as the input.
+    # # Save unfiltered call datasets
+    # for name, df in unfiltered_calls.items():
+    #     output_file = os.path.join(args.output_dir, f'{args.genome_accession}_{name}_unfiltered_calls.csv')
+    #     df.to_csv(output_file, index=False)
+    #     print(f"Saved unfiltered calls for {name} to {output_file}")
     
-    # Save filtered call datasets
-    for name, df in filtered_calls.items():
-        output_file = os.path.join(args.output_dir, f'{args.genome_accession}_{name}_filtered_calls.csv')
-        df.to_csv(output_file, index=False)
-        print(f"Saved filtered calls for {name} to {output_file}")
+    # # Save filtered call datasets
+    # for name, df in filtered_calls.items():
+    #     output_file = os.path.join(args.output_dir, f'{args.genome_accession}_{name}_filtered_calls.csv')
+    #     df.to_csv(output_file, index=False)
+    #     print(f"Saved filtered calls for {name} to {output_file}")
 
 if __name__ == "__main__":
     main()
