@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import glob
-import os
+import pprint
 
 # Function to convert percentage strings to floats
 def convert_percentage(x):
@@ -11,17 +11,20 @@ def convert_percentage(x):
 
 # Read all files
 base_dir = "2024.11.08"
+deltaBS_pattern = "2024.11.08b/*/*performance*"
 files = glob.glob(f"{base_dir}/*.tsv")
+deltaBS_files = glob.glob(deltaBS_pattern)
 
 # Initialize dictionary to store dataframes
 data_dict = {
     'bakta': [],
     'bakta_db': [],
     'ncbi': [],
-    'salmonella': []
+    'salmonella': [],
+    'deltaBS': []  # Added deltaBS category
 }
 
-# Process each file
+# Process regular files
 for file in files:
     # Read the TSV file
     df = pd.read_csv(file, sep='\t')
@@ -40,15 +43,38 @@ for file in files:
     elif 'salmonella_pseudos' in file:
         data_dict['salmonella'].append(df)
 
+# Process deltaBS files
+for file in deltaBS_files:
+    # Read the TSV file
+    df = pd.read_csv(file, sep='\t')
+    
+    # Get the second to last row
+    row = df.iloc[-2]
+    
+    # Create a new dataframe with just this row's sensitivity and PPV
+    deltaBS_df = pd.DataFrame({
+        'input_file': [file],
+        'sensitivity': [row['Sensitivity'] * 100],  # Convert to percentage
+        'ppv': [row['PPV'] * 100]  # Convert to percentage
+    })
+    
+    data_dict['deltaBS'].append(deltaBS_df)
+
+
+
 # Combine dataframes within each category
 for category in data_dict:
     if data_dict[category]:
         data_dict[category] = pd.concat(data_dict[category], ignore_index=True)
 
+for category in data_dict:
+    print(category)
+    print(data_dict[category])
+
 # Create scatter plot
 plt.figure(figsize=(12, 8))
-colors = ['blue', 'red', 'green', 'purple']
-markers = ['o', 's', '^', 'D']
+colors = ['blue', 'red', 'green', 'purple', 'orange']  # Added color for deltaBS
+markers = ['o', 's', '^', 'D', '*']  # Added marker for deltaBS
 
 for (category, color, marker) in zip(data_dict.keys(), colors, markers):
     if not data_dict[category].empty:
