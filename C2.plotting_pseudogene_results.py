@@ -111,10 +111,12 @@ plt.rc('figure', titlesize=18)   # fontsize of the figure title
 
 # Create scatter plot
 plt.figure(figsize=(12, 8))
-colors = ['blue', 'red', 'green', 'purple', 'orange']
-markers = {'EI': 'o', 'GI': 's'}  # Circle for EI, Square for GI
+colors = {'bakta':'blue', 'bakta_db':'red', 'ncbi':'green', 'salmonella':'purple', 'deltaBS':'orange'}
 
-for idx, (category, color) in enumerate(zip(data_dict.keys(), colors)):
+# colors = ['blue', 'red', 'green', 'purple', 'orange']
+markers = {'EI': 'o', 'GI': '^'}  # Circle for EI, Square for GI
+
+for category in colors:
     for classification in ['EI', 'GI']:
         if isinstance(data_dict[category][classification], pd.DataFrame) and \
            not data_dict[category][classification].empty:
@@ -123,7 +125,7 @@ for idx, (category, color) in enumerate(zip(data_dict.keys(), colors)):
                 data_dict[category][classification]['ppv'],
                 label=f'{category} ({classification})',
                 alpha=0.6,
-                c=color,
+                c=colors[category],
                 marker=markers[classification],
                 s=100
             )
@@ -140,6 +142,9 @@ plt.grid(True, linestyle='--', alpha=0.7, linewidth=0.8)
 
 # Add a bit of padding to the axes
 plt.margins(0.1)
+
+plt.xlim(0, 100)
+plt.ylim(0, 100)
 
 # Adjust layout to prevent legend cutoff
 plt.tight_layout()
