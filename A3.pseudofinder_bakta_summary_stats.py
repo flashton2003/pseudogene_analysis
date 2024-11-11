@@ -84,7 +84,7 @@ def create_tsv_output(results):
         f"{results['ppv']:.2%}"
     ]
     
-    return '\t'.join(header) + '\n' + '\t'.join(data_row)
+    return '\t'.join(header) + '\n' + '\t'.join(data_row) + '\n'
 
 def main():
     # Set up argument parser
