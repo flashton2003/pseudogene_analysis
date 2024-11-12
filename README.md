@@ -4,30 +4,9 @@ This is an LLM generated README, it's generally sensible, but interpret with som
 
 This repository contains a collection of scripts for detecting and analyzing pseudogenes in bacterial genomes, specifically focusing on Salmonella strains. The pipeline implements three different approaches to pseudogene detection:
 
-1. PseudoFinder and Bakta-based detection
-2. Delta-bitscore (DBS) analysis
-3. Combined analysis of both approaches
-
-## Requirements
-
-### Environment Setup
-A Conda environment file (`deltaBS_analysis_env.yml`) is provided with the required dependencies:
-
-```yaml
-dependencies:
-  - diamond
-  - python>=3.8
-  - pandas>=1.5.0
-  - numpy>=1.21.0
-  - seaborn>=0.12.0
-  - matplotlib>=3.6.0
-  - openpyxl
-```
-
-To create the environment:
-```bash
-conda env create -f deltaBS_analysis_env.yml
-```
+1. Bakta annotation
+2. PseudoFinder detection
+3. Delta-bitscore (DBS) analysis
 
 ## Scripts Overview
 
@@ -39,9 +18,9 @@ conda env create -f deltaBS_analysis_env.yml
 ### B. Delta-bitscore (DBS) Analysis
 0. `B1.deltaBS_workflow.nf`: runs deltaBS.
 1. `B2.diamon_reciprocal_best_hits.py`: Performs DIAMOND reciprocal best hits analysis to enable matching between my annotated genome and the nuccio & baumler "[proteome]([url](https://www.dropbox.com/scl/fi/da92gzzesypw0tax46qsm/2024.11.06.nuccio_baumler_uniprotkb.clean.fasta?rlkey=zk2wtryx17q3mh0ugndf1fjxj&dl=0))".
-2. `B3.join_nuccio_and_dbs.py`: Combines Nuccio dataset with DBS results
-3. `B4.deltaBS_summary_stats.py`: Generates summary statistics for DBS predictions
-4. `B5.deltaBS_overall_plot.py`: Creates visualization plots for DBS analysis
+2. `B3.join_nuccio_and_dbs.py`: Combines Nuccio dataset with DBS results using the reciprocal blast matching.
+3. `B4.deltaBS_summary_stats.py`: Generates summary statistics for DBS predictions for each genome, including at different dbs thresholds.
+4. `B5.deltaBS_overall_plot.py`: Creates visualization plots for DBS analysis.
 
 ### C. Combined Analysis
 1. `C1.combine_bakta_and_non_bakta.py`: Integrates results from both Bakta and non-Bakta approaches
