@@ -2,6 +2,8 @@
 
 This is an LLM generated README, it's generally sensible, but interpret with some caution.
 
+Accompanying blog post here - https://bitsandbugs.org/2024/11/12/comparison-of-pseudogene-finding-software/
+
 This repository contains a collection of scripts for detecting and analyzing pseudogenes in bacterial genomes, specifically focusing on Salmonella strains. The pipeline implements three different approaches to pseudogene detection:
 
 1. Bakta annotation
