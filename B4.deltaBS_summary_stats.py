@@ -80,6 +80,7 @@ def analyze_genes(data_file, accession, dbs_threshold):
     }
     
     summary_performance = {
+        'Reference_Genome': reference_name,
         'DBS_Threshold': dbs_threshold,
         'True_HDCs': total_true_hdcs,
         'Predicted_HDCs': total_predicted_hdcs,

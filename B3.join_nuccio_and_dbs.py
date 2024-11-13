@@ -44,7 +44,7 @@ def select_row_for_index(group):
         else:
             # If neither condition is met, take highest delta-bitscore row
             return sorted_group.iloc[0]
-
+        
 def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Process and merge Nuccio analysis with DBS results')
