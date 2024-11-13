@@ -1,0 +1,6 @@
+.DS_Store
+.nextflow.log
+.nextflow/
+.snakemake/
+work/
+
