@@ -5,7 +5,33 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import os
 
-def analyze_genes(data_file, reference_name, dbs_threshold):
+# Define strain mapping
+STRAIN_MAPPING = {
+    'GCF_000020705.1': 'SL476',
+    'GCF_000020745.1': 'CVM19633',
+    'GCF_000020885.1': 'SL483',
+    'GCF_000009505.1': 'P125109',
+    'GCF_000018705.1': 'SPB7',
+    'GCF_000195995.1': 'CT18',
+    'GCF_000007545.1': 'Ty2',
+    'GCF_000011885.1': 'ATCC 9150',
+    'GCF_000020925.1': 'CT_02021853',
+    'GCF_000009525.1': '287/91',
+    'GCF_000008105.1': 'SC-B67',
+    'GCF_000018385.1': 'RKS4594',
+    'GCF_000026565.1': 'AKU_12601'
+}
+
+def get_reference_name(accession):
+    """Convert accession to reference name using the mapping."""
+    if accession not in STRAIN_MAPPING:
+        raise ValueError(f"Unknown accession: {accession}. Valid accessions are: {', '.join(STRAIN_MAPPING.keys())}")
+    return STRAIN_MAPPING[accession]
+
+def analyze_genes(data_file, accession, dbs_threshold):
+    # Convert accession to reference name
+    reference_name = get_reference_name(accession)
+    
     # Read the Excel file
     df = pd.read_excel(data_file, sheet_name='Deduplicated_Data')
     
@@ -43,7 +69,8 @@ def analyze_genes(data_file, reference_name, dbs_threshold):
     
     # Split the summary into two dictionaries
     summary_counts = {
-        'Reference_Genome': reference_name,
+        'Accession': accession,
+        'Reference_Name': reference_name,
         'Total_Genes': total_genes,
         'Genes_with_Blast': genes_with_blast,
         'Genes_with_DBS': genes_with_dbs,
@@ -113,15 +140,21 @@ def plot_sensitivity_ppv(summaries, output_dir):
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: python script.py <excel_file> <reference_name>")
+        print("Usage: python script.py <excel_file> <accession>")
+        print("\nValid accessions:")
+        for acc, ref in STRAIN_MAPPING.items():
+            print(f"  {acc} -> {ref}")
         sys.exit(1)
         
     excel_file = sys.argv[1]
-    reference_name = sys.argv[2]
+    accession = sys.argv[2]
     
     try:
-        # Create output directory based on reference name
-        output_dir = f"deltabs_analysis_{reference_name}"
+        # Get reference name from accession
+        reference_name = get_reference_name(accession)
+        
+        # Create output directory based on accession and reference name
+        output_dir = f"deltabs_analysis_{accession}_{reference_name}"
         os.makedirs(output_dir, exist_ok=True)
         
         # Read data to calculate percentiles
@@ -136,7 +169,7 @@ def main():
         summaries_counts = []
         summaries_performance = []
         for threshold in thresholds:
-            counts, performance = analyze_genes(excel_file, reference_name, threshold)
+            counts, performance = analyze_genes(excel_file, accession, threshold)
             summaries_counts.append(counts)
             summaries_performance.append(performance)
         
@@ -144,12 +177,12 @@ def main():
         plot_sensitivity_ppv(summaries_performance, output_dir)
         
         # Prepare output files
-        counts_file = os.path.join(output_dir, f"deltabs_gene_counts_{reference_name}.tsv")
-        performance_file = os.path.join(output_dir, f"deltabs_performance_{reference_name}.tsv")
+        counts_file = os.path.join(output_dir, f"deltabs_gene_counts_{accession}.tsv")
+        performance_file = os.path.join(output_dir, f"deltabs_performance_{accession}.tsv")
         
         # Write counts table
         with open(counts_file, 'w') as f:
-            count_headers = ['Reference_Genome', 'Total_Genes', 'Genes_with_Blast', 
+            count_headers = ['Accession', 'Reference_Name', 'Total_Genes', 'Genes_with_Blast', 
                            'Genes_with_DBS', 'True_HDCs', 'True_HDCs_with_Blast', 
                            'True_HDCs_with_DBS']
             print("\nGene Counts Summary:")
