@@ -1,6 +1,9 @@
 import pandas as pd
 import re
 from pathlib import Path
+import argparse
+import shutil
+
 
 # Read and process the nuccio file
 def process_nuccio(file_path):
@@ -36,8 +39,8 @@ def process_pseudofinder(file_path):
                     names=['seqname', 'source', 'feature', 'start', 'end', 
                           'score', 'strand', 'frame', 'attribute'])
     
-    # Extract BIANFB locus tags
-    def extract_bianfb(attribute):
+    # Extract locus tags matching the pattern: 6 uppercase letters, underscore, 5 digits
+    def extract_locus_tag(attribute):
         if pd.isna(attribute):
             return None
         # Find the old_locus_tag section
@@ -45,18 +48,21 @@ def process_pseudofinder(file_path):
         if not old_locus_match:
             return None
         
-        # Split multiple locus tags and find BIANFB ones
+        # Split multiple locus tags and find ones matching the pattern
         locus_tags = old_locus_match.group(1).split(',')
-        bianfb_tags = [tag for tag in locus_tags if 'BIANFB_' in tag]
+        pattern = r'[A-Z]{6}_\d{5}'
+        matching_tags = [tag for tag in locus_tags if re.match(pattern, tag.strip())]
         
-        # Return the first BIANFB tag found, or None if none found
-        return bianfb_tags[0] if bianfb_tags else None
-
-    df['bianfb_locus_tag'] = df['attribute'].apply(extract_bianfb)
-
-    df.to_csv('pseudofinder_pseudos.csv')
-
-    return df['bianfb_locus_tag'].dropna().tolist()
+        # Return the first matching tag found, or None if none found
+        return matching_tags[0] if matching_tags else None
+    # df['matching_locus_tag', 'attribute'].to_csv('pseudofinder.csv')
+    
+    df['matching_locus_tag'] = df['attribute'].apply(extract_locus_tag)
+    df.to_csv('pseudofinder.csv')
+    matching_tags = df['matching_locus_tag'].dropna().tolist()
+    print(matching_tags)
+    # print(f"Found {len(matching_tags)} matching locus tags")
+    return matching_tags
 
 # Process reciprocal diamond file
 def process_diamond(file_path):
@@ -67,19 +73,28 @@ def process_diamond(file_path):
 def process_anaerobic(file_path):
     return pd.read_excel(file_path)['Reference locus tag(s)'].tolist()
 
-def main():
-    # Read all files
-    nuccio_df = process_nuccio("/Users/flashton/Dropbox/GordonGroup/STRATAA_XDR_Salmonella_Isangi/pseudogene_finding/2024.11.05b/mbo001141769st1.adding_isangi.xlsx")
-    bakta_pseudos = process_bakta("/Users/flashton/Dropbox/GordonGroup/STRATAA_XDR_Salmonella_Isangi/pseudogene_finding/2024.11.12/CNS1F3.gff3")
-    pseudofinder_pseudos = process_pseudofinder("/Users/flashton/Dropbox/GordonGroup/STRATAA_XDR_Salmonella_Isangi/pseudogene_finding/2024.11.12/CNS1F3_pseudofinder_pseudos.gff")
-    diamond_df = process_diamond("/Users/flashton/Dropbox/GordonGroup/STRATAA_XDR_Salmonella_Isangi/pseudogene_finding/2024.11.12/CNS1F3_vs_nuccio.reciprocal_diamond.tsv")
-    anaerobic_genes = process_anaerobic("/Users/flashton/Dropbox/GordonGroup/STRATAA_XDR_Salmonella_Isangi/pseudogene_finding/2024.11.05b/mbo001141769st7.central_anaerobic_genes.xlsx")
-    
-    # write pseudofinder_pseudos to file
-    # with open("pseudofinder_pseudos.txt", "w") as f:
-    #     for item in pseudofinder_pseudos:
-    #         f.write("%s\n" % item)
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Process pseudogene data from multiple sources')
+    parser.add_argument('--nuccio', required=True, help='Path to Nuccio Excel file')
+    parser.add_argument('--bakta', required=True, help='Path to Bakta GFF3 file')
+    parser.add_argument('--pseudofinder', required=True, help='Path to Pseudofinder GFF file')
+    parser.add_argument('--diamond', required=True, help='Path to Diamond TSV file')
+    parser.add_argument('--anaerobic', required=True, help='Path to anaerobic genes Excel file')
+    parser.add_argument('--output', default='processed_results.xlsx', 
+                      help='Path for output Excel file (default: processed_results.xlsx)')
+    return parser.parse_args()
 
+def main():
+    # Parse command line arguments
+    args = parse_arguments()
+    
+    # Read all files
+    nuccio_df = process_nuccio(args.nuccio)
+    bakta_pseudos = process_bakta(args.bakta)
+    pseudofinder_pseudos = process_pseudofinder(args.pseudofinder)
+    diamond_df = process_diamond(args.diamond)
+    anaerobic_genes = process_anaerobic(args.anaerobic)
+    
     # First join: nuccio and diamond
     merged_df = pd.merge(nuccio_df, diamond_df, 
                         left_on='UniProtKB_ID', 
@@ -99,16 +114,8 @@ def main():
     merged_df['pseudogene'] = ((merged_df['bakta_pseudogene'] == 1) | 
                               (merged_df['pseudofinder_pseudogene'] == 1)).astype(int)
     
-    # Count anaerobic metabolism genes that are pseudogenes
-    pseudo_anaerobic = merged_df[
-        (merged_df['central_anaerobic_metabolism'] == 1) & 
-        (merged_df['pseudogene'] == 1)
-    ].shape[0]
-    
-    print(f"Number of central anaerobic metabolism genes that are pseudogenes: {pseudo_anaerobic}")
-    
-    # Optionally save the results
-    merged_df.to_excel("processed_results.xlsx", index=False)
+    # Save the results
+    merged_df.to_excel(args.output, index=False, engine='openpyxl')
 
 if __name__ == "__main__":
     main()

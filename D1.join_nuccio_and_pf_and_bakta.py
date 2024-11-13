@@ -34,7 +34,8 @@ def process_pseudofinder(file_path):
     # Read GFF file, skipping comments
     df = pd.read_csv(file_path, sep='\t', comment='#', header=None,
                     names=['seqname', 'source', 'feature', 'start', 'end', 
-                          'score', 'strand', 'frame', 'attribute'])
+                          'score', 'strand', 'frame', 'attribute'],
+                          low_memory=False)
     
     # Extract BIANFB locus tags
     def extract_bianfb(attribute):
