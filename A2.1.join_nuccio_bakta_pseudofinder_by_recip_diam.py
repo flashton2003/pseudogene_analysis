@@ -20,7 +20,8 @@ def process_bakta(file_path):
     # Read GFF file, skipping comments
     df = pd.read_csv(file_path, sep='\t', comment='#', header=None,
                     names=['seqname', 'source', 'feature', 'start', 'end', 
-                          'score', 'strand', 'frame', 'attribute'])
+                          'score', 'strand', 'frame', 'attribute'],
+                          low_memory=False)
     
     # Extract locus tag
     df['locus_tag'] = df['attribute'].apply(
@@ -37,7 +38,8 @@ def process_pseudofinder(file_path):
     # Read GFF file, skipping comments
     df = pd.read_csv(file_path, sep='\t', comment='#', header=None,
                     names=['seqname', 'source', 'feature', 'start', 'end', 
-                          'score', 'strand', 'frame', 'attribute'])
+                          'score', 'strand', 'frame', 'attribute'],
+                          low_memory=False)
     
     # Extract locus tags matching the pattern: 6 uppercase letters, underscore, 5 digits
     def extract_locus_tag(attribute):
@@ -60,7 +62,7 @@ def process_pseudofinder(file_path):
     df['matching_locus_tag'] = df['attribute'].apply(extract_locus_tag)
     df.to_csv('pseudofinder.csv')
     matching_tags = df['matching_locus_tag'].dropna().tolist()
-    print(matching_tags)
+    # print(matching_tags)
     # print(f"Found {len(matching_tags)} matching locus tags")
     return matching_tags
 

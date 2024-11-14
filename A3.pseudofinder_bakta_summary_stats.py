@@ -20,18 +20,25 @@ STRAIN_MAPPING = {
 
 def evaluate_predictions(data, input_filename, strain_col):
     # Extract strain column and is_pseudogene column
-    is_pseudogene_col = 'is_pseudogene'
+    is_pseudogene_col = 'pseudogene'
+    cam_col = 'central_anaerobic_metabolism'
     
     # Initialize counters
     true_positives = 0
     false_positives = 0
     false_negatives = 0
     total_analyzed = 0
+    pseudo_and_cam_count = 0  # New counter for genes that are both pseudogenes and CAM
     
     # Iterate through rows
     for idx, row in data.iterrows():
         strain_value = str(row[strain_col])
         is_pseudogene = int(row[is_pseudogene_col])
+        is_cam = int(row[cam_col]) if pd.notna(row[cam_col]) else 0  # Handle potential NaN values
+        
+        # Count genes that are both pseudogenes and CAM
+        if is_pseudogene == 1 and is_cam == 1:
+            pseudo_and_cam_count += 1
         
         # Skip if strain value is "Absent" or empty
         if strain_value == "3|Absent" or pd.isna(strain_value):
@@ -63,7 +70,8 @@ def evaluate_predictions(data, input_filename, strain_col):
         'false_positives': false_positives,
         'false_negatives': false_negatives,
         'sensitivity': sensitivity,
-        'ppv': ppv
+        'ppv': ppv,
+        'pseudo_and_cam_count': pseudo_and_cam_count  # Add new metric to results
     }
     
     return results
@@ -71,7 +79,7 @@ def evaluate_predictions(data, input_filename, strain_col):
 def create_tsv_output(results):
     # Create header and data rows
     header = ['input_file', 'strain', 'total_analyzed', 'true_positives', 'false_positives', 
-              'false_negatives', 'sensitivity', 'ppv']
+              'false_negatives', 'sensitivity', 'ppv', 'pseudo_and_cam_count']  # Added new column
     
     data_row = [
         results['input_file'],
@@ -81,7 +89,8 @@ def create_tsv_output(results):
         str(results['false_positives']),
         str(results['false_negatives']),
         f"{results['sensitivity']:.2%}",
-        f"{results['ppv']:.2%}"
+        f"{results['ppv']:.2%}",
+        str(results['pseudo_and_cam_count'])  # Added new metric
     ]
     
     return '\t'.join(header) + '\n' + '\t'.join(data_row) + '\n'
@@ -107,9 +116,11 @@ def main():
     except Exception as e:
         raise Exception(f"Error reading input file: {str(e)}")
     
-    # Check if strain column exists
+    # Check if required columns exist
     if strain not in data.columns:
         raise ValueError(f"Strain column '{strain}' not found in input file")
+    if 'central_anaerobic_metabolism' not in data.columns:
+        raise ValueError("Column 'central_anaerobic_metabolism' not found in input file")
     
     # Run the analysis
     results = evaluate_predictions(data, args.input_file, strain)

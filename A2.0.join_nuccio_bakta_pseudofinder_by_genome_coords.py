@@ -147,6 +147,9 @@ def main():
                 # Check for overlap with any call
                 for call in calls:
                     if check_overlap(call, coords):
+                        if row['Reference locus tag(s)'] == 'STM0212':
+                            print(call)
+                            print(strain_data)
                         truth.at[idx, 'is_pseudogene'] = 1
                         break
     
