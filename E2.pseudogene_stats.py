@@ -112,7 +112,7 @@ ei_gi_lookup = {
     'GCF_000026565.1': 'EI'
 }
 
-list_of_excels = ['2024.11.13b/GCF_000007545.1.calls_vs_nuccio.xlsx', '2024.11.13b/GCF_000008105.1.calls_vs_nuccio.xlsx', '2024.11.13b/GCF_000009505.1.calls_vs_nuccio.xlsx', '2024.11.13b/GCF_000009525.1.calls_vs_nuccio.xlsx', '2024.11.13b/GCF_000011885.1.calls_vs_nuccio.xlsx', '2024.11.13b/GCF_000018385.1.calls_vs_nuccio.xlsx', '2024.11.13b/GCF_000018705.1.calls_vs_nuccio.xlsx', '2024.11.13b/GCF_000020745.1.calls_vs_nuccio.xlsx', '2024.11.13b/GCF_000020885.1.calls_vs_nuccio.xlsx', '2024.11.13b/GCF_000020925.1.calls_vs_nuccio.xlsx', '2024.11.13b/GCF_000026565.1.calls_vs_nuccio.xlsx', '2024.11.13b/GCF_000195995.1.calls_vs_nuccio.xlsx']
+list_of_excels = ['2024.11.14/GCF_000007545.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000008105.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000009505.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000009525.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000011885.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000018385.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000018705.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000020745.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000020885.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000020925.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000026565.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000195995.1.calls_vs_nuccio.xlsx']
 
 results = analyze_all_files(list_of_excels, STRAIN_MAPPING)
 
@@ -126,4 +126,4 @@ cols.remove('salm_type')             # Remove the column name you want to move
 cols.insert(2, 'salm_type')         # Insert it at position 2 (third position)
 results = results[cols]               # Reorder the DataFrame
 
-results.to_csv('2024.11.13b/2024.11.13.pseudogene_validation_results.csv', index=False)
+results.to_csv('2024.11.14/2024.11.14.pseudogene_validation_results.csv', index=False)

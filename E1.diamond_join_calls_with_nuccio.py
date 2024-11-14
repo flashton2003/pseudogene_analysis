@@ -79,36 +79,33 @@ def is_dbs_pseudogene(row, threshold):
     1. Delta-bit-score > threshold OR
     2. loss_of_function = 1
     """
-    # print(threshold, row['delta-bitscore'])
     if pd.isnull(row['delta-bitscore']):
         return 0
     return 1 if (row['delta-bitscore'] > threshold) else 0
 
-def select_row_for_index(group):
+def create_consensus_row(group):
     """
-    Select the appropriate row for each Index group based on DBS logic:
-    1. If no loss_of_function=1, take highest delta-bitscore row
-    2. If highest positive delta-bitscore has loss_of_function=1, take that row
-    3. If lowest delta-bitscore has loss_of_function=1, take that row
-    4. Otherwise, take highest delta-bitscore row
+    Create a consensus row from a group of rows based on pseudogene columns.
+    If any row has a 1 in a pseudogene column, the consensus row gets a 1.
     """
-    sorted_group = group.sort_values('delta-bitscore', ascending=False)
-    has_loss_of_function = (sorted_group['loss_of_function'] == 1).any()
+    # Get the first row as the base for non-pseudogene columns
+    consensus = group.iloc[0].copy()
     
-    if not has_loss_of_function:
-        return sorted_group.iloc[0]
-    
-    positive_dbs_with_loss = sorted_group[
-        (sorted_group['delta-bitscore'] > 0) & 
-        (sorted_group['loss_of_function'] == 1)
+    # List of pseudogene columns to check
+    pseudo_columns = [
+        'bakta_pseudogene',
+        'pseudofinder_baktadb_pseudogene',
+        'pseudofinder_salmonella_pseudogene',
+        'pseudofinder_ncbi_pseudogene',
+        'dbs_pseudogene'
     ]
     
-    if not positive_dbs_with_loss.empty:
-        return positive_dbs_with_loss.iloc[0]
-    elif sorted_group.iloc[-1]['loss_of_function'] == 1:
-        return sorted_group.iloc[-1]
-    else:
-        return sorted_group.iloc[0]
+    # For each pseudogene column, set to 1 if any row in the group has a 1
+    for col in pseudo_columns:
+        if col in group.columns:  # Check if column exists
+            consensus[col] = 1 if (group[col] == 1).any() else 0
+    
+    return pd.Series(consensus)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Process pseudogene data from multiple sources')
@@ -136,7 +133,7 @@ def main():
                         left_on='UniProtKB_ID', 
                         right_on='protein_id', 
                         how='left')
-    merged_df.to_csv('merged.csv')
+    
     # Add anaerobic metabolism column
     merged_df['central_anaerobic_metabolism'] = merged_df['Reference locus tag(s)'].isin(anaerobic_genes).astype(int)
     
@@ -156,60 +153,39 @@ def main():
     for source, pseudos in pseudofinder_results.items():
         merged_df[f'pseudofinder_{source}_pseudogene'] = merged_df['qseqid'].isin(pseudos).astype(int)
     
-    
-    # need to group by index, and then make a column for each of the pseudofinder results (baktadb salmonella etc)
-    # that is 1 for pseudogene is any of them are 1.
-    # do some stats - are there some genes that match loads of query proteins?
-
     # Process DBS if provided
     if args.dbs:
         dbs_results = process_dbs(args.dbs)
         
-        # do this the same as the above, filter the DBS and then return a list for
-        # checking if it is in?
+        # Merge DBS results
         merged_df = pd.merge(merged_df, dbs_results[['gene_2', 'delta-bitscore', 'loss_of_function']],
                            left_on='qseqid',
                            right_on='gene_2',
                            how='left')
-        # merged_df = pd.merge(merged_df, dbs_results,
-        #                    left_on='qseqid',
-        #                    right_on='gene_2',
-        #                    how='left')
-        
-        merged_df.to_csv('merged_dbs.csv')
-        # Create deduplicated version using DBS logic
-        dedup_rows = []
-        for idx, group in merged_df.groupby('Index'):
-            selected_row = select_row_for_index(group)
-            dedup_rows.append(selected_row)
-        dedup_df = pd.DataFrame(dedup_rows)
         
         # Calculate DBS threshold and add DBS pseudogene column
-        dbs_threshold = calculate_dbs_threshold(dedup_df['delta-bitscore'])        
-        dedup_df['dbs_pseudogene'] = dedup_df.apply(
+        dbs_threshold = calculate_dbs_threshold(merged_df['delta-bitscore'])
+        merged_df['dbs_pseudogene'] = merged_df.apply(
             lambda row: is_dbs_pseudogene(row, dbs_threshold), axis=1
         )
-
-
-        # Fill in the missing values with 0s
-        dedup_df['dbs_pseudogene'] = dedup_df['dbs_pseudogene'].fillna(0).astype(int)
-
-
-        merged_df.drop(['gene_2', 'delta-bitscore', 'loss_of_function'], axis=1, inplace=True)
-        dedup_df.drop(['gene_2', 'delta-bitscore', 'loss_of_function'], axis=1, inplace=True)
         
-        # Save both complete and deduplicated data
-        with pd.ExcelWriter(args.output, engine='openpyxl') as writer:
-            merged_df.to_excel(writer, sheet_name='Complete_Data', index=False)
-            dedup_df.to_excel(writer, sheet_name='Deduplicated_Data', index=False)
-            
-        print(f"Processing complete. Output saved to: {args.output}")
+        # Clean up temporary DBS columns
+        merged_df.drop(['gene_2', 'delta-bitscore', 'loss_of_function'], axis=1, inplace=True)
+    
+    # Create consensus-based deduplicated dataframe
+    dedup_df = (merged_df.groupby('Index', group_keys=True)
+                .apply(create_consensus_row, include_groups=False)
+                .reset_index())
+        
+    # Save both complete and deduplicated data
+    with pd.ExcelWriter(args.output, engine='openpyxl') as writer:
+        merged_df.to_excel(writer, sheet_name='Complete_Data', index=False)
+        dedup_df.to_excel(writer, sheet_name='Deduplicated_Data', index=False)
+        
+    print(f"Processing complete. Output saved to: {args.output}")
+    if args.dbs:
         print(f"DBS threshold (97.5th percentile): {dbs_threshold:.2f}")
-        print("Sheets created: Complete_Data and Deduplicated_Data")
-    else:
-        # Save only the complete data if no DBS file provided
-        merged_df.to_excel(args.output, index=False, engine='openpyxl')
-        print(f"Processing complete. Output saved to: {args.output}")
+    print("Sheets created: Complete_Data and Deduplicated_Data")
 
 if __name__ == "__main__":
     main()
