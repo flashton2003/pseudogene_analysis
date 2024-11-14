@@ -59,7 +59,7 @@ def process_pseudofinder(file_path):
 def process_diamond(file_path):
     """Process reciprocal diamond file"""
     df = pd.read_csv(file_path, sep='\t')
-    return df[['qseqid_fwd', 'protein_id']]
+    return df[['qseqid', 'protein_id']]
 
 def process_dbs(file_path):
     """Process DBS results file"""
@@ -136,14 +136,14 @@ def main():
                         left_on='UniProtKB_ID', 
                         right_on='protein_id', 
                         how='left')
-    
+    merged_df.to_csv('merged.csv')
     # Add anaerobic metabolism column
     merged_df['central_anaerobic_metabolism'] = merged_df['Reference locus tag(s)'].isin(anaerobic_genes).astype(int)
     
     # Process Bakta if provided
     if args.bakta:
         bakta_pseudos = process_bakta(args.bakta)
-        merged_df['bakta_pseudogene'] = merged_df['qseqid_fwd'].isin(bakta_pseudos).astype(int)
+        merged_df['bakta_pseudogene'] = merged_df['qseqid'].isin(bakta_pseudos).astype(int)
     
     # Process each Pseudofinder result
     pseudofinder_results = {
@@ -154,10 +154,13 @@ def main():
     
     # Add columns for each Pseudofinder result
     for source, pseudos in pseudofinder_results.items():
-        merged_df[f'pseudofinder_{source}_pseudogene'] = merged_df['qseqid_fwd'].isin(pseudos).astype(int)
+        merged_df[f'pseudofinder_{source}_pseudogene'] = merged_df['qseqid'].isin(pseudos).astype(int)
     
     
-    
+    # need to group by index, and then make a column for each of the pseudofinder results (baktadb salmonella etc)
+    # that is 1 for pseudogene is any of them are 1.
+    # do some stats - are there some genes that match loads of query proteins?
+
     # Process DBS if provided
     if args.dbs:
         dbs_results = process_dbs(args.dbs)
@@ -165,14 +168,15 @@ def main():
         # do this the same as the above, filter the DBS and then return a list for
         # checking if it is in?
         merged_df = pd.merge(merged_df, dbs_results[['gene_2', 'delta-bitscore', 'loss_of_function']],
-                           left_on='qseqid_fwd',
+                           left_on='qseqid',
                            right_on='gene_2',
                            how='left')
         # merged_df = pd.merge(merged_df, dbs_results,
-        #                    left_on='qseqid_fwd',
+        #                    left_on='qseqid',
         #                    right_on='gene_2',
         #                    how='left')
         
+        merged_df.to_csv('merged_dbs.csv')
         # Create deduplicated version using DBS logic
         dedup_rows = []
         for idx, group in merged_df.groupby('Index'):
@@ -187,9 +191,7 @@ def main():
         )
 
 
-
-        dedup_df.to_csv('dedup.csv')
-        # Add DBS pseudogene column with default of 0
+        # Fill in the missing values with 0s
         dedup_df['dbs_pseudogene'] = dedup_df['dbs_pseudogene'].fillna(0).astype(int)
 
 
