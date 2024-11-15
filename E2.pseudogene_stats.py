@@ -22,10 +22,13 @@ def count_central_metabolism_pseudogenes(df, method_col):
     """Count pseudogenes that are also central metabolism genes"""
     return ((df[method_col] == 1) & (df['central_anaerobic_metabolism'] == 1)).sum()
 
-def analyze_file(excel_path, strain_mapping):
+def analyze_file(excel_path, strain_mapping, coord_matching):
     """Analyze a single Excel file and return its metrics"""
     # Read the Excel file
-    df = pd.read_excel(excel_path, sheet_name='Deduplicated_Data')
+    if coord_matching is True:
+        df = pd.read_excel(excel_path)
+    elif coord_matching is False:
+        df = pd.read_excel(excel_path, sheet_name='Deduplicated_Data')
     
     # Get the GCF accession from the filename
     gcf_acc = excel_path.stem.split('.calls_vs')[0]
@@ -44,11 +47,21 @@ def analyze_file(excel_path, strain_mapping):
         'dbs_pseudogene'
     ]
     
+    positives_in_truth = df[strain].astype(str).str.startswith('2').sum()
+    # calc the number where strain column starts with 2 and central_anaerobic_metabolism is 1
+
+    positives_in_cam_truth = df[(df[strain].astype(str).str.startswith('2')) & (df['central_anaerobic_metabolism'] == 1)].shape[0]
+
+
     results = {
         'strain': strain,
-        'gcf_acc': gcf_acc
+        'gcf_acc': gcf_acc,
+        'total_positives_in_truth': positives_in_truth,
+        'total_positives_in_cam_truth': positives_in_cam_truth
     }
     
+    
+
     for method in methods:
         ppv, sens, total_pos, true_pos = calculate_metrics(df, method, strain)
         cam_count = count_central_metabolism_pseudogenes(df, method)
@@ -63,14 +76,14 @@ def analyze_file(excel_path, strain_mapping):
     
     return results
 
-def analyze_all_files(todo_list, strain_mapping):
+def analyze_all_files(todo_list, strain_mapping, coord_matching = False):
     """Analyze all Excel files in the directory"""
     results = []
     
     # Process each Excel file
     for file_path in todo_list:
         file = Path(file_path)
-        result = analyze_file(file, strain_mapping)
+        result = analyze_file(file, strain_mapping, coord_matching)
         if result:
             results.append(result)
     
@@ -113,8 +126,9 @@ ei_gi_lookup = {
 }
 
 list_of_excels = ['2024.11.14/GCF_000007545.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000008105.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000009505.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000009525.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000011885.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000018385.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000018705.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000020745.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000020885.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000020925.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000026565.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000195995.1.calls_vs_nuccio.xlsx']
+# list_of_excels = '2024.11.14b/GCF_000007545.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000008105.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000009505.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000009525.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000011885.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000018385.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000018705.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000020745.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000020885.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000020925.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000026565.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000195995.1.calls_vs_nuccio.coords.xlsx'
 
-results = analyze_all_files(list_of_excels, STRAIN_MAPPING)
+results = analyze_all_files(list_of_excels, STRAIN_MAPPING, coord_matching = True)
 
 # add a column to results based on the GCF accession lookup in ei_gi_lookup
 results['salm_type'] = results['gcf_acc'].map(ei_gi_lookup)
@@ -126,4 +140,5 @@ cols.remove('salm_type')             # Remove the column name you want to move
 cols.insert(2, 'salm_type')         # Insert it at position 2 (third position)
 results = results[cols]               # Reorder the DataFrame
 
-results.to_csv('2024.11.14/2024.11.14.pseudogene_validation_results.csv', index=False)
+# results.to_csv('2024.11.14b/2024.11.14.pseudogene_validation_results.coordinate_matching.csv', index=False)
+results.to_csv('2024.11.14/2024.11.14.pseudogene_validation_results.diamond_matching.csv', index=False)
