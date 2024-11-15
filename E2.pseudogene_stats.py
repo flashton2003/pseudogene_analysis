@@ -22,6 +22,10 @@ def count_central_metabolism_pseudogenes(df, method_col):
     """Count pseudogenes that are also central metabolism genes"""
     return ((df[method_col] == 1) & (df['central_anaerobic_metabolism'] == 1)).sum()
 
+def count_group_pseudogenes(df, method_col, group_id):
+    """Count pseudogenes in a specific functional group"""
+    return ((df[method_col] == 1) & (df['Cross-reference'].str.contains(group_id, na=False))).sum()
+
 def analyze_file(excel_path, strain_mapping, coord_matching):
     """Analyze a single Excel file and return its metrics"""
     # Read the Excel file
@@ -47,11 +51,16 @@ def analyze_file(excel_path, strain_mapping, coord_matching):
         'dbs_pseudogene'
     ]
     
+    # Define functional groups
+    functional_groups = {
+        'fimbrae': 'GroupID:G01',
+        'T3SS-1_effector': 'GroupID:G02',
+        'T3SS-2_effector': 'GroupID:G03',
+        'motility_chemotaxis': 'GroupID:G05'
+    }
+    
     positives_in_truth = df[strain].astype(str).str.startswith('2').sum()
-    # calc the number where strain column starts with 2 and central_anaerobic_metabolism is 1
-
     positives_in_cam_truth = df[(df[strain].astype(str).str.startswith('2')) & (df['central_anaerobic_metabolism'] == 1)].shape[0]
-
 
     results = {
         'strain': strain,
@@ -60,12 +69,17 @@ def analyze_file(excel_path, strain_mapping, coord_matching):
         'total_positives_in_cam_truth': positives_in_cam_truth
     }
     
-    
+    # Count truth positives for each functional group
+    for group_name, group_id in functional_groups.items():
+        truth_count = df[(df[strain].astype(str).str.startswith('2')) & 
+                        (df['Cross-reference'].str.contains(group_id, na=False))].shape[0]
+        results[f'{group_name}_truth'] = truth_count
 
     for method in methods:
         ppv, sens, total_pos, true_pos = calculate_metrics(df, method, strain)
         cam_count = count_central_metabolism_pseudogenes(df, method)
         
+        # Add basic metrics
         results.update({
             f'{method}_ppv': ppv,
             f'{method}_sensitivity': sens,
@@ -73,6 +87,11 @@ def analyze_file(excel_path, strain_mapping, coord_matching):
             f'{method}_true_positives': true_pos,
             f'{method}_cam_count': cam_count
         })
+        
+        # Add functional group counts
+        for group_name, group_id in functional_groups.items():
+            group_count = count_group_pseudogenes(df, method, group_id)
+            results[f'{method}_{group_name}_count'] = group_count
     
     return results
 
@@ -126,19 +145,17 @@ ei_gi_lookup = {
 }
 
 list_of_excels = ['2024.11.14/GCF_000007545.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000008105.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000009505.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000009525.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000011885.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000018385.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000018705.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000020745.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000020885.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000020925.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000026565.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000195995.1.calls_vs_nuccio.xlsx']
-# list_of_excels = '2024.11.14b/GCF_000007545.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000008105.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000009505.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000009525.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000011885.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000018385.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000018705.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000020745.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000020885.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000020925.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000026565.1.calls_vs_nuccio.coords.xlsx', '2024.11.14b/GCF_000195995.1.calls_vs_nuccio.coords.xlsx'
 
 results = analyze_all_files(list_of_excels, STRAIN_MAPPING, coord_matching = True)
 
-# add a column to results based on the GCF accession lookup in ei_gi_lookup
+# Add salm_type column based on GCF accession lookup
 results['salm_type'] = results['gcf_acc'].map(ei_gi_lookup)
-# move salm_type to third column in dataframe
 
-# To move column 'D' to the third position (index 2):
+# Move salm_type to third column in dataframe
 cols = list(results.columns)
-cols.remove('salm_type')             # Remove the column name you want to move
-cols.insert(2, 'salm_type')         # Insert it at position 2 (third position)
-results = results[cols]               # Reorder the DataFrame
+cols.remove('salm_type')
+cols.insert(2, 'salm_type')
+results = results[cols]
 
-# results.to_csv('2024.11.14b/2024.11.14.pseudogene_validation_results.coordinate_matching.csv', index=False)
+# Save results
 results.to_csv('2024.11.14/2024.11.14.pseudogene_validation_results.diamond_matching.csv', index=False)
