@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import argparse
 from pathlib import Path
 
 def calculate_metrics(df, method_col, truth_col):
@@ -29,10 +30,15 @@ def count_group_pseudogenes(df, method_col, group_id):
 def analyze_file(excel_path, strain_mapping, coord_matching):
     """Analyze a single Excel file and return its metrics"""
     # Read the Excel file
-    if coord_matching is True:
-        df = pd.read_excel(excel_path)
-    elif coord_matching is False:
+    # if coord_matching is True:
+    # elif coord_matching is False:
+    try:    
         df = pd.read_excel(excel_path, sheet_name='Deduplicated_Data')
+    except ValueError as e:
+        if "Worksheet named 'Deduplicated_Data' not found" in str(e):
+            df = pd.read_excel(excel_path)
+
+
     
     # Get the GCF accession from the filename
     gcf_acc = excel_path.stem.split('.calls_vs')[0]
@@ -60,6 +66,9 @@ def analyze_file(excel_path, strain_mapping, coord_matching):
     }
     
     positives_in_truth = df[strain].astype(str).str.startswith('2').sum()
+    # df[df[strain].astype(str).str.startswith('2')].to_csv(f'{strain}_pseudo.csv', index=False)
+
+    # print(strain, positives_in_truth)
     positives_in_cam_truth = df[(df[strain].astype(str).str.startswith('2')) & (df['central_anaerobic_metabolism'] == 1)].shape[0]
 
     results = {
@@ -99,63 +108,76 @@ def analyze_all_files(todo_list, strain_mapping, coord_matching = False):
     """Analyze all Excel files in the directory"""
     results = []
     
-    # Process each Excel file
     for file_path in todo_list:
+        if str(file_path).split('/')[-1].startswith('~'):
+            continue
         file = Path(file_path)
         result = analyze_file(file, strain_mapping, coord_matching)
         if result:
             results.append(result)
     
-    # Create a DataFrame with all results
-    results_df = pd.DataFrame(results)
+    return pd.DataFrame(results)
+
+def main():
+    parser = argparse.ArgumentParser(description='Analyze pseudogene statistics from Excel files')
+    parser.add_argument('--input_dir', help='Directory containing input Excel files')
+    parser.add_argument('--output_file', help='Output CSV filename')
+    parser.add_argument('--coord-matching', action='store_true', help='Enable coordinate matching')
+    args = parser.parse_args()
+
+    STRAIN_MAPPING = {
+        'GCF_000020705.1': 'SL476',
+        'GCF_000020745.1': 'CVM19633',
+        'GCF_000020885.1': 'SL483',
+        'GCF_000009505.1': 'P125109',
+        'GCF_000018705.1': 'SPB7',
+        'GCF_000195995.1': 'CT18',
+        'GCF_000007545.1': 'Ty2',
+        'GCF_000011885.1': 'ATCC 9150',
+        'GCF_000020925.1': 'CT_02021853',
+        'GCF_000009525.1': '287/91',
+        'GCF_000008105.1': 'SC-B67',
+        'GCF_000018385.1': 'RKS4594',
+        'GCF_000026565.1': 'AKU_12601'
+    }
+
+    ei_gi_lookup = {
+        'GCF_000007545.1': 'EI',
+        'GCF_000008105.1': 'EI',
+        'GCF_000009505.1': 'GI',
+        'GCF_000009525.1': 'EI',
+        'GCF_000011885.1': 'EI',
+        'GCF_000018385.1': 'EI',
+        'GCF_000018705.1': 'GI',
+        'GCF_000020705.1': 'GI',
+        'GCF_000020745.1': 'GI',
+        'GCF_000020885.1': 'GI',
+        'GCF_000020925.1': 'EI',
+        'GCF_000195995.1': 'EI',
+        'GCF_000026565.1': 'EI'
+    }
+
+    # Get list of Excel files in input directory
+    input_dir = Path(args.input_dir)
+    list_of_excels = list(input_dir.glob('*.xlsx'))
     
-    return results_df
+    if not list_of_excels:
+        print(f"No Excel files found in {input_dir}")
+        return
 
-# Example usage:
-STRAIN_MAPPING = {
-    'GCF_000020705.1': 'SL476',
-    'GCF_000020745.1': 'CVM19633',
-    'GCF_000020885.1': 'SL483',
-    'GCF_000009505.1': 'P125109',
-    'GCF_000018705.1': 'SPB7',
-    'GCF_000195995.1': 'CT18',
-    'GCF_000007545.1': 'Ty2',
-    'GCF_000011885.1': 'ATCC 9150',
-    'GCF_000020925.1': 'CT_02021853',
-    'GCF_000009525.1': '287/91',
-    'GCF_000008105.1': 'SC-B67',
-    'GCF_000018385.1': 'RKS4594',
-    'GCF_000026565.1': 'AKU_12601'
-}
+    results = analyze_all_files(list_of_excels, STRAIN_MAPPING, coord_matching=args.coord_matching)
+    
+    # Add salm_type column based on GCF accession lookup
+    results['salm_type'] = results['gcf_acc'].map(ei_gi_lookup)
 
-ei_gi_lookup = {
-    'GCF_000007545.1': 'EI',
-    'GCF_000008105.1': 'EI',
-    'GCF_000009505.1': 'GI',
-    'GCF_000009525.1': 'EI',
-    'GCF_000011885.1': 'EI',
-    'GCF_000018385.1': 'EI',
-    'GCF_000018705.1': 'GI',
-    'GCF_000020705.1': 'GI',
-    'GCF_000020745.1': 'GI',
-    'GCF_000020885.1': 'GI',
-    'GCF_000020925.1': 'EI',
-    'GCF_000195995.1': 'EI',
-    'GCF_000026565.1': 'EI'
-}
+    # Move salm_type to third column in dataframe
+    cols = list(results.columns)
+    cols.remove('salm_type')
+    cols.insert(2, 'salm_type')
+    results = results[cols]
 
-list_of_excels = ['2024.11.14/GCF_000007545.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000008105.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000009505.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000009525.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000011885.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000018385.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000018705.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000020745.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000020885.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000020925.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000026565.1.calls_vs_nuccio.xlsx', '2024.11.14/GCF_000195995.1.calls_vs_nuccio.xlsx']
+    # Save results
+    results.to_csv(args.output_file, index=False)
 
-results = analyze_all_files(list_of_excels, STRAIN_MAPPING, coord_matching = True)
-
-# Add salm_type column based on GCF accession lookup
-results['salm_type'] = results['gcf_acc'].map(ei_gi_lookup)
-
-# Move salm_type to third column in dataframe
-cols = list(results.columns)
-cols.remove('salm_type')
-cols.insert(2, 'salm_type')
-results = results[cols]
-
-# Save results
-results.to_csv('2024.11.14/2024.11.14.pseudogene_validation_results.diamond_matching.csv', index=False)
+if __name__ == '__main__':
+    main()
