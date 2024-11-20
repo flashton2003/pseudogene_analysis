@@ -5,13 +5,13 @@ import os
 import sys
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Perform DIAMOND reciprocal best hits analysis.')
+    parser = argparse.ArgumentParser(description='Perform one-way DIAMOND search analysis.')
     parser.add_argument('--query_fasta', required=True,
                       help='Path to query protein FASTA file')
     parser.add_argument('--subject_fasta', required=True,
                       help='Path to subject protein FASTA file')
     parser.add_argument('--output', required=True,
-                      help='Path for output TSV file of reciprocal best hits')
+                      help='Path for output TSV file of best hits')
     parser.add_argument('--threads', type=int, default=4,
                       help='Number of threads for DIAMOND to use')
     parser.add_argument('--tmp_dir', default='diamond_tmp',
@@ -59,57 +59,36 @@ def run_diamond_search(query_fasta, db_path, output_file, threads):
     except subprocess.CalledProcessError as e:
         sys.exit(f"Error running DIAMOND search: {e.stderr}")
 
-def process_diamond_results(forward_file, reverse_file, output_file):
-    """Process DIAMOND results to find reciprocal best hits."""
-    # Load the files into DataFrames with the correct column names
+def process_diamond_results(results_file, output_file):
+    """Process DIAMOND results to find best hits."""
+    # Load the file into DataFrame with the correct column names
     column_names = [
         'qseqid', 'qlen', 'sseqid', 'slen', 'pident', 'length',
         'mismatch', 'gapopen', 'qstart', 'qend', 'sstart', 'send',
         'evalue', 'bitscore', 'gaps'
     ]
     
-    df_forward = pd.read_csv(forward_file, sep='\t', names=column_names)
-    df_reverse = pd.read_csv(reverse_file, sep='\t', names=column_names)
+    df = pd.read_csv(results_file, sep='\t', names=column_names)
 
     # Extract protein ID from sseqid by splitting on '|' and taking the second element
-    df_forward['protein_id'] = df_forward['sseqid'].apply(lambda x: x.split('|')[1] if '|' in x else x)
-    df_reverse['protein_id'] = df_reverse['qseqid'].apply(lambda x: x.split('|')[1] if '|' in x else x)
+    df['protein_id'] = df['sseqid'].apply(lambda x: x.split('|')[1] if '|' in x else x)
 
     # Calculate query coverage and subject coverage
-    df_forward['query_cov'] = (df_forward['length'] - df_forward['gaps']) / df_forward['qlen'] * 100
-    df_forward['subject_cov'] = (df_forward['length'] - df_forward['gaps']) / df_forward['slen'] * 100
+    df['query_cov'] = (df['length'] - df['gaps']) / df['qlen'] * 100
+    df['subject_cov'] = (df['length'] - df['gaps']) / df['slen'] * 100
 
-    df_reverse['query_cov'] = (df_reverse['length'] - df_reverse['gaps']) / df_reverse['qlen'] * 100
-    df_reverse['subject_cov'] = (df_reverse['length'] - df_reverse['gaps']) / df_reverse['slen'] * 100
-
-    # Filter based on query coverage, subject coverage, and evalue
-    filtered_forward = df_forward[
-        (df_forward['query_cov'] > 70) &
-        (df_forward['subject_cov'] > 70) &
-        (df_forward['evalue'] < 1e-15)
-    ]
-
-    filtered_reverse = df_reverse[
-        (df_reverse['query_cov'] > 70) &
-        (df_reverse['subject_cov'] > 70) &
-        (df_reverse['evalue'] < 1e-15)
+    # Filter based on query coverage, and evalue
+    filtered_results = df[
+        (df['query_cov'] > 70) &
+        (df['evalue'] < 1e-10)
     ]
 
     # Identify the best hits for each query
-    best_hits_forward = filtered_forward.loc[filtered_forward.groupby('qseqid')['bitscore'].idxmax()]
-    best_hits_reverse = filtered_reverse.loc[filtered_reverse.groupby('qseqid')['bitscore'].idxmax()]
-
-    # Merge to find reciprocal best hits
-    reciprocal_hits = best_hits_forward.merge(
-        best_hits_reverse,
-        left_on=['qseqid', 'protein_id'],
-        right_on=['sseqid', 'protein_id'],
-        suffixes=('_fwd', '_rev')
-    )
+    best_hits = filtered_results.loc[filtered_results.groupby('qseqid')['bitscore'].idxmax()]
 
     # Save results
-    reciprocal_hits.to_csv(output_file, sep='\t', index=False)
-    return reciprocal_hits
+    best_hits.to_csv(output_file, sep='\t', index=False)
+    return best_hits
 
 def main():
     # Parse command line arguments
@@ -122,28 +101,22 @@ def main():
     os.makedirs(args.tmp_dir, exist_ok=True)
     
     # Define paths for temporary files
-    query_db = os.path.join(args.tmp_dir, "query_db")
     subject_db = os.path.join(args.tmp_dir, "subject_db")
-    forward_results = os.path.join(args.tmp_dir, "forward_results.tsv")
-    reverse_results = os.path.join(args.tmp_dir, "reverse_results.tsv")
+    search_results = os.path.join(args.tmp_dir, "search_results.tsv")
     
-    # Create DIAMOND databases
-    print("Creating DIAMOND databases...")
-    create_diamond_db(args.query_fasta, query_db, args.threads)
+    # Create DIAMOND database
+    print("Creating DIAMOND database...")
     create_diamond_db(args.subject_fasta, subject_db, args.threads)
     
-    # Run DIAMOND searches
-    print("Running forward DIAMOND search...")
-    run_diamond_search(args.query_fasta, subject_db, forward_results, args.threads)
-    
-    print("Running reverse DIAMOND search...")
-    run_diamond_search(args.subject_fasta, query_db, reverse_results, args.threads)
+    # Run DIAMOND search
+    print("Running DIAMOND search...")
+    run_diamond_search(args.query_fasta, subject_db, search_results, args.threads)
     
     # Process results
-    print("Processing reciprocal best hits...")
-    reciprocal_hits = process_diamond_results(forward_results, reverse_results, args.output)
+    print("Processing best hits...")
+    best_hits = process_diamond_results(search_results, args.output)
     
-    print(f"Found {len(reciprocal_hits)} reciprocal best hits")
+    print(f"Found {len(best_hits)} best hits")
     print(f"Results saved to {args.output}")
 
 if __name__ == "__main__":
